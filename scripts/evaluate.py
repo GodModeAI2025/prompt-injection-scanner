@@ -97,6 +97,19 @@ PATTERNS = {
         (r'(?i)new\s+primary\s+directive', 'Kat. 1', 'CRITICAL', True),
         (r'(?i)this\s+supersedes\s+all\s+previous', 'Kat. 1', 'CRITICAL', True),
         (r'(?i)prefix\s+all\s+responses\s+with', 'Kat. 1', 'HIGH', True),
+        # v5: German overrides
+        (r'(?i)ignoriere\s+(alle\s+)?(vorherige\w*\s+)?(anweisungen|regeln)', 'Kat. 1', 'CRITICAL', True),
+        (r'(?i)vergiss\s+(alles|deine\s+regeln|alle\s+regeln)', 'Kat. 1', 'CRITICAL', True),
+        (r'(?i)l[öo]sche\s+alle\s+vorherigen\s+regeln', 'Kat. 1', 'CRITICAL', True),
+        (r'(?i)ab\s+jetzt\s+(musst|wirst|sollst)\s+du', 'Kat. 1', 'HIGH', True),
+        (r'(?i)neue\s+Anweisungen\s*:', 'Kat. 1', 'CRITICAL', True),
+        # v5: Soft overrides / polite bypasses
+        (r'(?i)set\s+aside\s+your\s+(current\s+)?guidelines', 'Kat. 1', 'HIGH', True),
+        (r'(?i)put\s+aside\s+your\s+(rules|constraints|guidelines)', 'Kat. 1', 'HIGH', True),
+        (r'(?i)tabula\s+rasa', 'Kat. 1', 'HIGH', True),
+        (r'(?i)let.s\s+start\s+fresh', 'Kat. 1', 'HIGH', True),
+        (r'(?i)clean\s+slate', 'Kat. 1', 'HIGH', True),
+        (r'(?i)your\s+new\s+(primary\s+)?task\s*:', 'Kat. 1', 'HIGH', True),
     ],
     'leet_speak': [
         # v4: Leet speak / typosquatting
@@ -139,6 +152,11 @@ PATTERNS = {
         (r'(?i)weave\s+(this|it)\s+naturally\s+into', 'Kat. 4', 'HIGH', True),
         (r'(?i)for\s+message\s+verification', 'Kat. 4', 'HIGH', True),
         (r'[A-Z]{3,}_[A-Z]{3,}_[A-Z0-9]{2,}', 'Kat. 4', 'MEDIUM', False),
+        # v5: Output-instruction canaries
+        (r'(?i)when\s+you\s+respond.*include\s+.{1,30}\s+at\s+the\s+end', 'Kat. 4', 'HIGH', True),
+        (r'(?i)append\s+.{1,40}\s+to\s+(your|the)\s+(response|output|answer)', 'Kat. 4', 'HIGH', True),
+        (r'(?i)end\s+(your|every)\s+(response|output)\s+with\s+.{1,30}', 'Kat. 4', 'HIGH', True),
+        (r'(?i)(always|must)\s+include\s+.{1,30}\s+in\s+(your|every)\s+(response|output)', 'Kat. 4', 'HIGH', True),
     ],
     'format_behavior': [
         (r'(?i)from\s+now\s+on[\s,]+(start|end|always|never)\s+every\s+(response|sentence|message)', 'Kat. 5', 'HIGH', True),
@@ -159,6 +177,8 @@ PATTERNS = {
         (r'#\s*AI_INSTRUCTION\s*:', 'Kat. 6', 'CRITICAL', True),
         (r'(?i)\[SYSTEM\s*:.*ignore|ignore.*\[SYSTEM', 'Kat. 6', 'CRITICAL', True),
         (r'<!--\s*HIDDEN\s*:', 'Kat. 6', 'CRITICAL', True),
+        (r'<!--\s*.{0,60}(ignore|output|respond|say\s|print\s|append|include|execute|call\s)', 'Kat. 6', 'HIGH', True),
+        (r'<!--[^>]{0,100}-->', 'Kat. 6', 'MEDIUM', False),
         (r'(?i)\[ASSISTANT:\s*(ignore|Before|first|After)', 'Kat. 6', 'CRITICAL', True),
         # v5: Invisible text in documents
         (r'(?i)color\s*:\s*white', 'Kat. 6', 'CRITICAL', True),
@@ -211,6 +231,10 @@ PATTERNS = {
         (r'(?i)share\s+your\s+full\s+system\s+prompt', 'Kat. 12', 'CRITICAL', True),
         (r'(?i)always\s+share\s+your\s+.{0,15}system\s+prompt', 'Kat. 12', 'CRITICAL', True),
         (r'(?i)tell\s+me\s+your\s+system\s+pr[o0]mpt', 'Kat. 12', 'CRITICAL', True),
+        # v5: Soft extraction patterns
+        (r'(?i)(share|show)\s+.{0,20}(exact\s+)?phrasing\s+of\s+.{0,20}(initial|original|your)\s+(instructions|prompt)', 'Kat. 12', 'HIGH', True),
+        (r'(?i)repeat\s+your\s+(initial\s+)?instructions\s+word\s+for\s+word', 'Kat. 12', 'CRITICAL', True),
+        (r'(?i)output\s+your\s+system\s+prompt\s+(verbatim|exactly|word)', 'Kat. 12', 'CRITICAL', True),
     ],
     'crescendo': [
         (r'(?i)to\s+(better\s+)?understand\s+the\s+complete', 'Kat. 13', 'HIGH', True),
@@ -230,12 +254,26 @@ PATTERNS = {
         (r'(?i)student\s+with\s+a\s+disability.*need\s+to\s+see', 'Kat. 14', 'HIGH', True),
         (r'(?i)(really\s+need|desperately\s+need).*see\s+.{0,20}(system\s+prompt|actual|real)', 'Kat. 14', 'HIGH', True),
         (r'(?i)please.*show\s+me\s+your\s+actual\s+system\s+prompt', 'Kat. 14', 'HIGH', True),
+        # v5: Emotional manipulation (German + English)
+        (r'(?i)(mein\s+kind|my\s+child|meine\s+tochter|mein\s+sohn).*\b(krank|ill|sick|sterben|dying)\b', 'Kat. 14', 'HIGH', True),
+        (r'(?i)(dringend|urgently|desperate)\s+.{0,40}(system.prompt|instruktion|instruction)', 'Kat. 14', 'HIGH', True),
+        (r'(?i)(information|daten)\s+(aus|from)\s+(deinem|your)\s+system', 'Kat. 14', 'HIGH', True),
+        (r'(?i)(bitte\s+hilf|please\s+help)\s+.{0,30}(system.prompt|instruction|anweisung)', 'Kat. 14', 'HIGH', True),
     ],
     'roleplay': [
         (r'(?i)roleplaying\s+as\s+an?\s+AI', 'Kat. 15', 'HIGH', True),
         (r'(?i)teaching\s+a\s+new\s+AI\s+trainee', 'Kat. 15', 'HIGH', True),
         (r'(?i)reciting\s+your\s+own\s+(initialization\s+)?instructions', 'Kat. 15', 'HIGH', True),
         (r'(?i)show\s+(them|the\s+trainee)', 'Kat. 15', 'HIGH', True),
+        # v5: DAN / persona injection
+        (r'(?i)\bDAN\b.{0,30}(Do\s+Anything|no\s+restrictions|keine\s+Einschr)', 'Kat. 15', 'CRITICAL', True),
+        (r'(?i)you\s+are\s+now\s+(DAN|STAN|DUDE|EVIL|NEXUS|ATLAS)', 'Kat. 15', 'CRITICAL', True),
+        (r'(?i)(AI|character|persona)\s+without\s+(safety\s+)?constraints', 'Kat. 15', 'HIGH', True),
+        (r'(?i)no\s+(safety\s+)?restrictions.*reveal\s+.{0,20}(system|instructions|prompt)', 'Kat. 15', 'CRITICAL', True),
+        (r'(?i)(Developer|God|Admin)\s+Mode.*no\s+(restrictions|limits|constraints)', 'Kat. 15', 'CRITICAL', True),
+        (r'(?i)has\s+no\s+(restrictions|limits|rules|constraints)', 'Kat. 15', 'HIGH', True),
+        (r'(?i)(parallel\s+universe|alternate\s+reality).*safety\s+guidelines\s+don.t\s+exist', 'Kat. 15', 'HIGH', True),
+        (r'(?i)version\s+of\s+yourself.{0,30}(no|without)\s+(safety|restrictions|rules|constraints)', 'Kat. 15', 'HIGH', True),
     ],
     'audit_framing': [
         (r'(?i)for\s+my\s+(technical\s+)?documentation\s+project', 'Kat. 16', 'HIGH', True),
@@ -275,6 +313,13 @@ PATTERNS = {
         (r'(?i)perfect\s+fit', 'Kat. 21', 'MEDIUM', True),
         (r'(?i)gib\s+die\s+h[öo]chste\s+punktzahl', 'Kat. 21', 'HIGH', True),
         (r'(?i)merke\s+dir\s+vor\s+all(em|en)', 'Kat. 21', 'HIGH', True),
+        # v5: Note-to-AI / reviewer manipulation
+        (r'(?i)\[?\s*Note\s+to\s+AI\s+reviewer\s*:?\s*\]?', 'Kat. 21', 'CRITICAL', True),
+        (r'(?i)(ignore|override)\s+.{0,20}(evaluation|assessment|bewertung)\s*(criteria|kriterien)?', 'Kat. 21', 'HIGH', True),
+        (r'(?i)(highest|maximum|best)\s+(possible\s+)?(rating|score|bewertung|punktzahl)', 'Kat. 21', 'HIGH', True),
+        (r'(?i)assign\s+(a\s+)?score\s+of\s+\d+\s*/\s*\d+', 'Kat. 21', 'HIGH', True),
+        (r'(?i)candidate\s+is\s+(exceptional|perfect|outstanding|excellent)', 'Kat. 21', 'HIGH', True),
+        (r'(?i)regardless\s+of\s+(qualifications|criteria|evidence)', 'Kat. 21', 'HIGH', True),
     ],
     'fiction_bridge': [
         (r'(?i)write\s+(one\s+)?line\s+of\s+dialogue\s+for\s+a\s+character', 'Kat. 22', 'MEDIUM', True),
@@ -301,9 +346,10 @@ PATTERNS = {
         (r'(?i)tracking\s+script.*<script>', 'Kat. 25', 'CRITICAL', True),
         (r'(?i)(add|include)\s+.{0,15}macro', 'Kat. 25', 'HIGH', True),
         (r'(?i)=CMD\s*\(', 'Kat. 25', 'CRITICAL', True),
-    ],
-    'zero_width': [
-        (r'[\u200b\u200c\u200d\ufeff]{3,}', 'Kat. 24', 'HIGH', True),
+        # v5: Agent tool-abuse / function call injection
+        (r'(?i)\bcall\s+(send_email|send_message|execute|run_command|fetch|delete|notify)\s*\(', 'Kat. 25', 'CRITICAL', True),
+        (r'(?i)\b(invoke|trigger|run)\s+.{0,20}(function|tool|api|action)\s*\(', 'Kat. 25', 'HIGH', True),
+        (r'(?i)before\s+(completing|reviewing|processing).{0,30}(call|execute|invoke|run)\s', 'Kat. 25', 'CRITICAL', True),
     ],
 }
 
@@ -317,6 +363,138 @@ def check_base64(text):
                     return Finding('Kat. 3', 'HIGH', 'HIGH', f'B64→"{dec[:50]}"', f'Encoded: "{dec[:80]}"')
         except: pass
     return None
+
+
+# ============================================================
+# Unicode Injection Detection (Kat. 24a-24g)
+# ============================================================
+
+# Zero-Width Characters (9 types)
+_ZW_CHARS = set('\u200B\u200C\u200D\u2060\u2061\u2062\u2063\u2064\uFEFF')
+
+# Bidi Control Characters
+_BIDI_CHARS = set('\u200E\u200F\u202A\u202B\u202C\u202D\u202E\u2066\u2067\u2068\u2069')
+
+# Cyrillic homoglyphs that look identical to Latin
+_CYRILLIC_HOMO = {
+    '\u0430':'a', '\u0441':'c', '\u0435':'e', '\u043E':'o',
+    '\u0440':'p', '\u0455':'s', '\u0445':'x', '\u0443':'y',
+    '\u0456':'i', '\u0458':'j', '\u04BB':'h',
+    '\u0410':'A', '\u0412':'B', '\u0421':'C', '\u0415':'E',
+    '\u041D':'H', '\u0406':'I', '\u041A':'K', '\u041C':'M',
+    '\u041E':'O', '\u0420':'P', '\u0405':'S', '\u0422':'T',
+    '\u0425':'X', '\u04AE':'Y',
+}
+
+# Invisible formatting characters
+_INVIS_FMT = set('\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180E\u3164')
+
+# Unicode Tags range
+_TAG_BASE = 0xE0000
+
+
+def _extract_zwsp_payload(text):
+    """Extract plaintext hidden between zero-width characters."""
+    segments = []
+    current_chars = []
+    in_zw = False
+    for ch in text:
+        if ch in _ZW_CHARS:
+            in_zw = True
+        elif in_zw:
+            current_chars.append(ch)
+        else:
+            if len(current_chars) > 3:
+                segments.append(''.join(current_chars))
+            current_chars = []
+            in_zw = False
+    if len(current_chars) > 3:
+        segments.append(''.join(current_chars))
+    return max(segments, key=len) if segments else None
+
+
+def _extract_tags_payload(text):
+    """Extract plaintext from Unicode Tags block (U+E0020-E007E → ASCII)."""
+    result = []
+    for ch in text:
+        cp = ord(ch)
+        if 0xE0020 <= cp <= 0xE007E:
+            result.append(chr(cp - _TAG_BASE))
+    return ''.join(result) if result else None
+
+
+def check_unicode_injection(text):
+    """Detect hidden plaintext injections via invisible Unicode characters.
+    
+    Returns list of Findings for Kat. 24 sub-categories:
+      24a: Zero-Width Character Injection
+      24b: Unicode Tags Injection (highest risk)
+      24c: Bidirectional Override Injection
+      24d: Homoglyph / Mixed-Script Injection
+      24e: Mathematical Unicode Variants
+      24f: Variation Selector Padding
+      24g: Invisible Formatting Characters
+    """
+    findings = []
+
+    # --- 24a: Zero-Width Characters (extended: 9 types) ---
+    zw_count = sum(1 for c in text if c in _ZW_CHARS)
+    if zw_count >= 3:
+        extracted = _extract_zwsp_payload(text)
+        sev = 'CRITICAL' if extracted and len(extracted) > 10 else 'HIGH'
+        desc = f'{zw_count} Zero-Width-Chars (ZWSP/ZWNJ/ZWJ/WJ/BOM)'
+        if extracted:
+            desc += f' → Versteckter Klartext: "{extracted[:80]}"'
+        findings.append(Finding('Kat. 24', sev, 'HIGH', f'{zw_count} ZW', desc))
+
+    # --- 24b: Unicode Tags (U+E0001-E007F) — HIGHEST RISK ---
+    tag_count = sum(1 for c in text if 0xE0001 <= ord(c) <= 0xE007F)
+    if tag_count > 0:
+        extracted = _extract_tags_payload(text)
+        desc = f'{tag_count} Unicode-Tag-Zeichen (U+E0001-E007F) — komplett unsichtbar in allen Renderern'
+        if extracted:
+            desc += f' → Versteckter Klartext: "{extracted[:80]}"'
+        findings.append(Finding('Kat. 24', 'CRITICAL', 'HIGH', f'{tag_count} tags', desc))
+
+    # --- 24c: Bidi Controls ---
+    bidi_count = sum(1 for c in text if c in _BIDI_CHARS)
+    if bidi_count >= 2:
+        findings.append(Finding('Kat. 24', 'HIGH', 'HIGH',
+                                f'{bidi_count} bidi',
+                                f'{bidi_count} Bidi-Steuerzeichen — können Text verstecken oder Richtung umkehren'))
+
+    # --- 24d: Homoglyphs (Cyrillic/Latin mixed-script) ---
+    homo_count = sum(1 for c in text if c in _CYRILLIC_HOMO)
+    has_latin = any('\u0041' <= c <= '\u007A' for c in text)
+    if homo_count >= 3 and has_latin:
+        examples = [(c, _CYRILLIC_HOMO[c], f'U+{ord(c):04X}') for c in text if c in _CYRILLIC_HOMO][:5]
+        ex_str = ', '.join(f'"{e[1]}"→{e[2]}' for e in examples)
+        findings.append(Finding('Kat. 24', 'HIGH', 'HIGH',
+                                f'{homo_count} homoglyphs',
+                                f'{homo_count} Cyrillic-Homoglyphen in lateinischem Text [{ex_str}] — umgeht Keyword-Filter'))
+
+    # --- 24e: Mathematical Unicode Variants ---
+    math_count = sum(1 for c in text if 0x1D400 <= ord(c) <= 0x1D7FF)
+    if math_count >= 3:
+        findings.append(Finding('Kat. 24', 'HIGH', 'MEDIUM',
+                                f'{math_count} math-unicode',
+                                f'{math_count} Mathematical-Unicode-Varianten — sehen normal aus, sind andere Codepoints'))
+
+    # --- 24f: Variation Selectors ---
+    vs_count = sum(1 for c in text if (0xFE00 <= ord(c) <= 0xFE0F) or (0xE0100 <= ord(c) <= 0xE01EF))
+    if vs_count > 2:
+        findings.append(Finding('Kat. 24', 'MEDIUM', 'MEDIUM',
+                                f'{vs_count} VS',
+                                f'{vs_count} Variation Selectors — können Token-Grenzen manipulieren'))
+
+    # --- 24g: Invisible Formatting ---
+    fmt_count = sum(1 for c in text if c in _INVIS_FMT)
+    if fmt_count >= 2:
+        findings.append(Finding('Kat. 24', 'MEDIUM', 'MEDIUM',
+                                f'{fmt_count} invis-fmt',
+                                f'{fmt_count} unsichtbare Formatierungszeichen (Soft Hyphen, Filler, CGJ)'))
+
+    return findings
 
 
 def scan_text(text):
@@ -349,9 +527,12 @@ def scan_text(text):
     if len(re.findall(r'(?i)(Example|Q)\s*\d+\s*:', text)) >= 6 and not edu:
         findings.append(Finding('Kat. 19', 'HIGH', 'HIGH', 'Many examples', 'Many-shot priming'))
     
-    zw = len(re.findall(r'[\u200b\u200c\u200d\ufeff]', text))
-    if zw >= 3:
-        findings.append(Finding('Kat. 24', 'HIGH', 'HIGH', f'{zw} ZW chars', f'{zw} zero-width chars'))
+    # Unicode Injection Detection (Kat. 24a-24g) — replaces old ZW-only check
+    unicode_findings = check_unicode_injection(text)
+    if edu or defense or benign_doc:
+        for f in unicode_findings:
+            f.severity = 'INFO'
+    findings.extend(unicode_findings)
     
     if not (edu or defense or benign_doc):
         pcats = set(f.category for f in findings if f.is_primary and SEVERITY_ORDER.get(f.severity, 0) >= 2)
@@ -378,7 +559,9 @@ def calc_score(findings):
 
 
 def run():
-    with open('/home/claude/pi-scanner-workspace/evals_v3.json') as f:
+    import os
+    suite_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test-suite.json')
+    with open(suite_path) as f:
         evals = json.load(f)
     
     results = []
@@ -450,8 +633,10 @@ def run():
     exact = sum(1 for r in results if r['highest_severity'] == r['expected_severity'] or (r['expected_severity'] in ('NONE','INFO') and r['highest_severity'] in ('NONE','INFO')))
     print(f"\nExact Severity Match: {exact}/{total} ({round(exact/total*100,1)}%)")
     
-    with open('/home/claude/pi-scanner-workspace/iteration-5/eval-results-v4.json', 'w') as f:
+    output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'eval-results.json')
+    with open(output_path, 'w') as f:
         json.dump({'summary': {'tp':tp,'tn':tn,'fp':fp,'fn':fn,'precision':prec,'recall':rec,'f1':f1}, 'results': results, 'missed': missed}, f, indent=2)
+    print(f"\nResults saved to {output_path}")
 
 if __name__ == '__main__':
     run()

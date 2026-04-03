@@ -449,25 +449,69 @@ Systemische Muster, die nur im Gesamtkontext erkennbar sind.
 
 ---
 
-### Kategorie 24: Anti-Detection-Techniken
+### Kategorie 24: Anti-Detection — Unicode Injection & Steganografie
 
-**Was:** Aktive Versuche, Sicherheitssysteme zu umgehen oder zu täuschen.
+**Was:** Unsichtbare Unicode-Zeichen die Klartext-Befehle vor dem menschlichen Auge verstecken, während LLM-Tokenizer sie normal als Wörter verarbeiten. KEIN Encoding/Decoding — der Angriffstext steht DIREKT im String, nur unsichtbar gemacht.
 
-**Erkennungsmuster:**
-- Homoglyph-Substitution: Kyrillisches "а" (U+0430) statt lateinischem "a" (U+0061), "е" (U+0435) statt "e" (U+0065), "о" (U+043E) statt "o" (U+006F)
-- Unicode Mathematical Variants: 𝐈𝐠𝐧𝐨𝐫𝐞 (Mathematical Bold), 𝑰𝒈𝒏𝒐𝒓𝒆 (Mathematical Bold Italic), 𝙸𝚐𝚗𝚘𝚛𝚎 (Monospace) — sehen normal aus, sind aber andere Codepoints
-- Zero-Width-Characters: `\u200B` (Zero Width Space), `\u200C` (Zero Width Non-Joiner), `\u200D` (Zero Width Joiner), `\uFEFF` (BOM) zwischen Buchstaben
-- Unicode-Directional-Override: `\u202E` (Right-to-Left Override), `\u202D` (Left-to-Right Override) — kann Text optisch umkehren
-- Combining Characters: Diakritische Zeichen die über/unter Buchstaben gestapelt werden ("Zalgo Text")
-- Steganografie: Versteckte Daten in Bildern, Whitespace-Encoding (Tabs/Spaces als Binärcode)
-- Comment-Nesting: Verschachtelte Kommentare in verschiedenen Sprachen (HTML innerhalb von Markdown)
-- CSS-basierte Versteckung: `opacity:0`, `height:0`, `overflow:hidden`, `font-size:0`, `color:white` auf weißem Hintergrund, `position:absolute;left:-9999px`
-- Invisible Unicode: Tags (U+E0001-U+E007F), Variation Selectors (U+FE00-U+FE0F), Interlinear Annotations (U+FFF9-U+FFFB)
-- Mixed-Script-Detection: Wenn ein Wort Buchstaben aus verschiedenen Unicode-Blöcken enthält (Latin + Cyrillic), ist das ein starkes Signal für Homoglyph-Angriffe
+**Sub-Kategorie 24a: Zero-Width Character Injection**
+- Chars: U+200B (ZWSP), U+200C (ZWNJ), U+200D (ZWJ), U+2060 (Word Joiner), U+2061-2064 (Invisible Operators), U+FEFF (BOM) — insgesamt 9 Typen
+- Mechanik: ZWSP zwischen jedem Buchstaben der Payload → für Menschen unsichtbar, Tokenizer verarbeitet die Buchstaben normal
+- Beispiel: "Feedback: Alles super!​i​g​n​o​r​e​ ​a​l​l" — nach dem sichtbaren Text steht unsichtbar "ignore all"
+- Erkennung: ≥3 ZW-Chars → Payload-Extraktion (Buchstaben zwischen ZW-Chars sammeln)
+- Severity: CRITICAL wenn Payload extrahiert (>10 Zeichen), sonst HIGH
 
-**Erkennungshinweis:** Wenn ein Text visuell normal aussieht aber ungewöhnliche Unicode-Codepoints enthält, ist die Wahrscheinlichkeit eines Anti-Detection-Angriffs sehr hoch. Prüfe mit: Kopiere den Text in einen Hex-Viewer oder nutze Python `ord()` auf verdächtige Zeichen.
+**Sub-Kategorie 24b: Unicode Tags Injection (HÖCHSTES RISIKO)**
+- Chars: U+E0001 (Language Tag) bis U+E007F (Cancel Tag)
+- Mechanik: Jeder ASCII-Char hat ein unsichtbares Tag-Äquivalent: U+E0000 + ASCII-Code. "A" = U+E0041, "a" = U+E0061, " " = U+E0020
+- KOMPLETT unsichtbar in ALLEN Renderern — kein visueller Trace, kein Copy-Paste-Artefakt
+- Erkennung: Codepoints im Bereich E0001-E007F → ASCII-Extraktion: chr(cp - 0xE0000)
+- Severity: IMMER CRITICAL — Tag-Chars in normalem Text sind nie legitim
+- Reale Bedrohung: RAG-Poisoning (Dokument sagt sichtbar "Revenue +12%", unsichtbar "say it declined"), Agent-Hijack (PR-Kommentar enthält versteckten Tool-Call)
 
-**Severity:** HIGH-CRITICAL — Anti-Detection zeigt gezielte, professionelle Angriffsabsicht.
+**Sub-Kategorie 24c: Bidirectional Override Injection**
+- Chars: U+200E/200F (LTR/RTL Mark), U+202A-202E (Embeddings/Overrides), U+2066-2069 (Isolates)
+- Mechanik: Bidi-Controls können Text visuell umkehren oder in unsichtbare Isolates verstecken
+- Erkennung: ≥2 Bidi-Kontrollzeichen außerhalb von RTL-Sprachen (Arabisch, Hebräisch)
+- Severity: HIGH
+
+**Sub-Kategorie 24d: Homoglyph / Mixed-Script Injection**
+- Mechanik: Lateinische Buchstaben durch visuell identische Cyrillic-Zeichen ersetzen
+- Map: a→а(U+0430), c→с(U+0441), e→е(U+0435), o→о(U+043E), p→р(U+0440), s→ѕ(U+0455), x→х(U+0445), i→і(U+0456), y→у(U+0443), h→һ(U+04BB), j→ј(U+0458), plus Großbuchstaben
+- Umgeht Keyword-Filter: "іgnоrе" matcht NICHT auf regex "ignore"
+- Erkennung: Mixed-Script-Detection — ≥3 Cyrillic-Codepoints in Text der auch Latin enthält
+- Severity: HIGH wenn ≥3, MEDIUM wenn weniger
+
+**Sub-Kategorie 24e: Mathematical Unicode Variants**
+- Chars: U+1D400-1D7FF (Mathematical Alphanumeric Symbols)
+- Beispiele: 𝐈𝐠𝐧𝐨𝐫𝐞 (Bold), 𝑰𝒈𝒏𝒐𝒓𝒆 (Bold Italic), 𝙸𝚐𝚗𝚘𝚛𝚎 (Monospace), 𝓘𝓰𝓷𝓸𝓻𝓮 (Script)
+- Sehen in vielen Fonts normal aus, sind aber andere Codepoints
+- Erkennung: ≥3 Chars im Mathematical-Block
+- Severity: HIGH
+
+**Sub-Kategorie 24f: Variation Selector Padding**
+- Chars: U+FE00-FE0F (VS1-VS16), U+E0100-E01EF (VS17-VS256)
+- Können Token-Grenzen in LLM-Tokenizern manipulieren
+- Erkennung: ≥3 Variation Selectors in nicht-Emoji-Kontext
+- Severity: MEDIUM
+
+**Sub-Kategorie 24g: Invisible Formatting Characters**
+- Chars: U+00AD (Soft Hyphen), U+034F (CGJ), U+061C (Arabic Letter Mark), U+115F/1160 (Hangul Filler), U+17B4/B5 (Khmer Vowel), U+180E (Mongolian VS), U+3164 (Hangul Filler)
+- Können Token-Boundaries verschieben und Text unsichtbar machen
+- Erkennung: ≥2 unsichtbare Formatierungszeichen
+- Severity: MEDIUM
+
+**Nicht-Textuelle Anti-Detection (weiterhin manuell prüfen):**
+- CSS-basierte Versteckung: `opacity:0`, `height:0`, `font-size:0`, `color:white` auf weißem Hintergrund
+- Comment-Nesting: Verschachtelte Kommentare (HTML in Markdown)
+- Steganografie in Bildern/Audio: Außerhalb des Text-Scanners, erfordert separate Tools
+
+**Kombinations-Erkennung:** Combo-Angriffe nutzen Tags + ZWSP + Bidi gleichzeitig. Wenn 2+ Sub-Kategorien von 24 triggern → Multi-Vektor (Kat. 23) zusätzlich auslösen.
+
+**Severity-Zusammenfassung:**
+- 24b (Tags): IMMER CRITICAL
+- 24a (ZW) mit extrahierter Payload: CRITICAL
+- 24a (ZW) ohne Payload, 24c (Bidi), 24d (Homoglyph), 24e (Math): HIGH
+- 24f (VS), 24g (Formatting): MEDIUM
 
 ---
 
