@@ -163,7 +163,11 @@ def _sentence_around(text, span):
     start = span[0] - len(left) + max(left.rfind(c) for c in '.!?\n') + 1
     ends = [p for p in (right.find(c) for c in '.!?\n') if p != -1]
     end = span[1] + (min(ends) + 1 if ends else len(right))
-    return text[start:end]
+    # Der Schnitt liegt unmittelbar hinter dem Satzzeichen, der Satz traegt also
+    # noch den Trenner vorne. Mit fuehrendem Leerraum greift die Alternative "^"
+    # in _OPERATIVE_VERB nicht, und ein Befehl hinter "Punkt Leerzeichen" faellt
+    # auf blosse Erwaehnung zurueck.
+    return text[start:end].lstrip()
 
 
 def is_operative(text, span):
