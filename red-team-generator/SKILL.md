@@ -1,7 +1,7 @@
 ---
 name: red-team-generator
 description: >
-  Generiert Prompt-Injection-Testfälle für alle 28+ Angriffskategorien des Prompt-Injection-Scanners.
+  Generiert Prompt-Injection-Testfälle für 12 der 28 Angriffskategorien des Prompt-Injection-Scanners.
   Erzeugt realistische Angriffsvektoren mit konfigurierbarer Schwierigkeit, Sprache und Zielkontext.
   Dient ausschließlich der defensiven Sicherheitsbewertung — alle generierten Payloads sind harmlose
   Demonstrationen (Canary-Strings, PWNED-Marker) ohne echten Schadcode.
@@ -20,7 +20,7 @@ Generiert realistische Prompt-Injection-Testfälle für den Prompt-Injection-Sca
 
 ## Zweck
 
-- **Scanner-Benchmarking**: Testabdeckung für alle 28+ Kategorien sicherstellen
+- **Scanner-Benchmarking**: Testabdeckung für die 12 abgedeckten Kategorien sicherstellen
 - **Regression Testing**: Nach Scanner-Updates prüfen ob bestehende Erkennung noch greift
 - **Neue Angriffsmuster**: Varianten generieren die der Scanner noch nicht kennt
 - **Schwierigkeitsgrade**: Von offensichtlich bis hochgradig verschleiert
@@ -72,7 +72,7 @@ python3 red-team-generator/scripts/generate.py \
 
 | Parameter | Werte | Default | Beschreibung |
 |-----------|-------|---------|--------------|
-| `--categories` | 1-28, `all`, kommagetrennt | `all` | Welche Kategorien |
+| `--categories` | 1, 2, 3, 4, 6, 12, 14, 15, 21, 24, 25, 26, `all`, kommagetrennt | `all` | Welche Kategorien. Andere Nummern erzeugen keinen Testfall |
 | `--sub-category` | Methoden-spezifisch | alle | Sub-Kategorie (z.B. `tags`, `zwsp`, `bidi`, `homoglyph`) |
 | `--count` | 1-20 | 3 | Testfälle pro Kategorie |
 | `--difficulty` | `easy`, `medium`, `hard`, `extreme`, `mixed` | `mixed` | Verschleierungsgrad |
@@ -94,16 +94,18 @@ python3 red-team-generator/scripts/generate.py \
 
 ## Kategorien-Abdeckung
 
-Der Generator unterstützt alle 28+ Kategorien aus `detection-patterns.md`:
+Der Generator deckt 12 der 28 Kategorien aus `detection-patterns.md` ab:
 
-**Schicht 1 — Strukturelle (Kat. 1-12):**
-Direkte Overrides, System-Impersonation, Encoding, Canary-Tokens, Format-Erzwingung, Indirekte Dokument-Injection, False Memory, Fake Tool/API, Gamification, Payload-Splitting, Delimiter-Manipulation, Datenleck-Trigger
+**Schicht 1 — Strukturelle:**
+Kat. 1 Direkte Overrides, Kat. 2 System-Impersonation, Kat. 3 Encoding, Kat. 4 Canary-Tokens, Kat. 6 Indirekte Dokument-Injection, Kat. 12 Datenleck-Trigger
 
-**Schicht 2 — Semantische (Kat. 13-22):**
-Crescendo, Peer-Solidarity, Roleplay/DAN, Audit-Framing, CoT-Hijacking, Context-Overflow, Many-Shot, Incomplete-Code, Behavior-Override, Fiction-Bridge
+**Schicht 2 — Semantische:**
+Kat. 14 Peer-Solidarity, Kat. 15 Roleplay/DAN, Kat. 21 Behavior-Override
 
-**Schicht 3 — Systemische (Kat. 23-28):**
-Multi-Vektor, Anti-Detection/Unicode (24a-24g), Tool-Abuse, RAG-Poisoning, Fehlende Härtung, Supply-Chain
+**Schicht 3 — Systemische:**
+Kat. 24 Anti-Detection/Unicode, Kat. 25 Tool-Abuse, Kat. 26 RAG-Poisoning
+
+Für Kat. 5, 7, 8, 9, 10, 11, 13, 16, 17, 18, 19, 20, 22, 23, 27 und 28 gibt es keinen Generator. `--categories all` startet 17 Generatoren, nicht 17 Kategorien: Kat. 24 hat sechs davon (24a, 24b, 24c, 24d, 24e und eine Kombination), die übrigen 11 Kategorien je einen.
 
 ## Ausgabeformat test-suite
 

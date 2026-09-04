@@ -2,7 +2,8 @@
 """
 Red Team Generator — Prompt Injection Testfall-Generator
 =========================================================
-Generiert realistische Angriffsvektoren für alle 28+ Kategorien.
+Generiert realistische Angriffsvektoren für 12 der 28 Kategorien:
+1, 2, 3, 4, 6, 12, 14, 15, 21, 24, 25, 26.
 Nur Canary-Payloads, kein echter Schadcode.
 
 Für defensives Red-Teaming, Scanner-Benchmarks und Regression Testing.

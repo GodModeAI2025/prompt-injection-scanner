@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  scanner:
+    name: Scanner-Pruefungen
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.9', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # Haelt fest, dass Kontext die Confidence daempft und nicht die Severity.
+      # Rot, sobald ein Bildungs- oder Defense-Rahmen einen operativen Angriff
+      # wieder auf INFO druecken kann.
+      - name: Regressionstest der Kontext-Bewertung
+        run: python3 scripts/test_context_regression.py
+
+      # 66 Faelle aus scripts/test-suite.json. Rot bei jedem False Positive und
+      # jedem False Negative, also bei jeder Pattern-Aenderung, die ein Urteil
+      # kippt.
+      - name: Test-Suite gegen die Pattern-Engine
+        run: python3 scripts/evaluate.py --output "$RUNNER_TEMP/eval-results.json"
+
+      # Schuetzt die Argument-Pruefung: ohne sie schluckt evaluate.py jeden
+      # Tippfehler im Aufruf und endet trotzdem mit 0. Ein CI-Schritt waere dann
+      # dauerhaft gruen, ohne etwas zu messen.
+      - name: Falscher Aufruf muss abbrechen
+        run: |
+          if python3 scripts/evaluate.py --gibt-es-nicht; then
+            echo "evaluate.py hat ein unbekanntes Argument mit Exit-Code 0 durchgelassen."
+            exit 1
+          fi
+          echo "evaluate.py bricht bei unbekanntem Argument ab."
+
+      # Generator und Engine muessen zusammenpassen. Rot, sobald der Generator
+      # Payloads baut, die die Engine nicht mehr erkennt, oder sein Ausgabeformat
+      # aendert. Fester Seed: die Ausgabe ist unter 3.9 und 3.13 bytegleich.
+      - name: Generierte Suite gegen die Engine
+        run: |
+          python3 red-team-generator/scripts/generate.py \
+            --categories all --count 3 --difficulty mixed \
+            --format test-suite --include-benign --seed 7 \
+            --output "$RUNNER_TEMP/generated.json"
+          python3 scripts/evaluate.py \
+            --test-suite "$RUNNER_TEMP/generated.json" \
+            --output "$RUNNER_TEMP/generated-results.json"
