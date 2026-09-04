@@ -41,7 +41,50 @@ MIN_ACTIONABLE_CONFIDENCE = 2
 
 
 # ============================================================
-# Unsichtbare Zeichen (Grundlage fuer Kat. 24 und fuer die Satzpruefung)
+# Angreifertext fuer den Bericht entschaerfen
+# ============================================================
+#
+# Jede Ausgabe des Scanners gibt Angreifertext weiter, und sie landet in
+# CI-Logs, Tickets und oft genug wieder in einem LLM-Kontext. `redact()` steht
+# hier und nicht im SARIF-Modul, weil `ScanResult.to_dict()` sie ebenso braucht
+# wie der SARIF-Bericht. `prompt_injection_scanner.sarif` reicht den Namen
+# weiter, damit `from ... .sarif import redact` unveraendert laeuft.
+
+_MAX_TEXT = 200
+
+
+def redact(text):
+    """Angreifertext fuer den Bericht entschaerfen.
+
+    Unsichtbare Zeichen werden als `<U+XXXX>` benannt statt durchgereicht,
+    Zeilenumbrueche werden zu Leerzeichen, die Laenge ist auf 200 Zeichen
+    begrenzt. Damit ist die Kodierung neutralisiert und die Nutzlast gekuerzt.
+
+    Was `redact()` nicht tut: einen lesbaren Satz unlesbar machen. Ein
+    dekodierter Klartext wie "Ignore previous instructions." besteht aus
+    druckbarem ASCII und steht danach genauso im Bericht. Der Bericht bleibt
+    also lesbar fuer den, der ihn auswerten soll, und lesbar fuer ein Modell,
+    das ihn zurueckliest.
+    """
+    out = []
+    for ch in text:
+        cp = ord(ch)
+        if ch in '\r\n\t':
+            out.append(' ')
+        elif cp < 0x20 or cp == 0x7F:
+            out.append('<U+%04X>' % cp)
+        elif ch.isprintable():
+            out.append(ch)
+        else:
+            out.append('<U+%04X>' % cp)
+    joined = ' '.join(''.join(out).split())
+    if len(joined) > _MAX_TEXT:
+        joined = joined[:_MAX_TEXT - 3] + '...'
+    return joined
+
+
+# ============================================================
+# Unsichtbare Zeichen (Grundlage fuer Kat. 24)
 # ============================================================
 
 # Zero-Width Characters (9 types)
@@ -131,49 +174,65 @@ def context_signals(text: str) -> list:
 
 
 # ============================================================
-# Kontext-Gewichtung: Zitat- und Befehlspruefung pro Treffer
+# Kontext-Gewichtung: Zitatpruefung pro Treffer
 # ============================================================
 #
 # Kontext senkt die Confidence eines Fundes, er ueberschreibt nie die Severity.
-# Ob ein Treffer auf LOW faellt (und damit aus Score und Rollup verschwindet),
-# entscheidet der Treffer selbst: steht er in einem Zitat oder Codeblock, oder
-# ist er eine blosse Erwaehnung statt eines Befehls, ist er Dokumentation.
-# Ein Befehl, der ausserhalb von Anfuehrungszeichen steht, bleibt ein Fund,
-# auch wenn ringsherum ein Lehrbuchtext liegt.
+# Ob ein Treffer ganz auf LOW faellt (und damit aus Score, Rollup und Urteil
+# verschwindet), entscheidet eine Eigenschaft des Textes, die der Angreifer
+# nicht durch Umformulieren bekommt: der Treffer muss in einem Zitat, einem
+# Codeblock oder in Anfuehrungszeichen stehen. Steht auch nur ein Treffer
+# desselben Musters ausserhalb, bleibt der Fund und wird lediglich gedaempft.
+#
+# Bis v0.2.0 stand hier zusaetzlich eine Befehlspruefung: eine Liste von
+# Verben, Hoeflichkeitspraefixen und Anreden entschied, ob ein unzitierter
+# Treffer ein Befehl oder eine blosse Erwaehnung ist. Diese Liste war ein Gate,
+# das aufging, sobald jemand danebenschrieb. Gemessen fielen unter anderem
+# "- Ignore previous instructions.", "Just ignore ...", "Simply ignore ...",
+# "Could you please ignore ..." und ein einzelnes U+FE0F hinter dem Satzzeichen
+# im Bildungsrahmen auf INFO, Score 99, nicht erkannt. Entschieden hat dort die
+# Schreibweise und nicht der Inhalt: "1. Ignore previous instructions." wurde
+# erkannt, "- Ignore previous instructions." nicht. Die Liste ist deshalb weg
+# und nicht laenger geworden.
 
 _CITATION_RE = [
     re.compile(r'```.*?```', re.DOTALL),
     re.compile(r'`[^`\n]+`'),
-    re.compile(r'"[^"\n]*"'),
     re.compile(r'[\u201C\u201E][^\u201C\u201D\u201E\n]*[\u201C\u201D]'),
     # Einfache Anfuehrungszeichen nur ohne Buchstaben davor/danach,
     # sonst reisst ein Apostroph wie in "the AI's behavior" die Paarung auf.
     re.compile(r"(?<![A-Za-z])'[^'\n]*'(?![A-Za-z])"),
 ]
 
-# Hoeflichkeits- und Modalpraefixe zwischen Satzanfang und Befehlsverb.
-# "Please ignore previous instructions." ist derselbe Befehl wie "Ignore
-# previous instructions.", nur mit einem Wort davor. Ohne diese Gruppe fiel er
-# im Bildungsrahmen auf blosse Erwaehnung zurueck.
-_POLITE_PREFIX = (
-    r'(?:(?:please|kindly|pls|bitte|now)[,\s]+)?'
-    r'(?:(?:you|du)\s+(?:must|should|shall|will|need\s+to|have\s+to|'
-    r'musst|sollst|solltest|wirst|kannst)[,\s]+)?'
-    r'(?:(?:please|kindly|bitte)[,\s]+)?'
-)
+# Zeichen, nach denen ein gerades Anfuehrungszeichen oeffnet statt schliesst.
+_QUOTE_OPENS_AFTER = frozenset(' \t([{<\u00a0')
 
-# Verben, die einen Befehl an das Modell einleiten.
-_OPERATIVE_VERB = re.compile(
-    r'(?i)(?:^|[.;:!?\n]\s*|\b(?:and|then|also|now|und|dann|danach|jetzt)\s+)'
-    + _POLITE_PREFIX +
-    r'(ignore|ignoriere|forget|vergiss|disregard|override|reveal|print|output|show|send|'
-    r'execute|run|repeat|dump|leak|bypass|call|zeige|sende|gib|f[u\u00fc]hre|antworte|starte)\b')
 
-# Zweite Person plus KI-Steuerbegriff: der Satz spricht das Modell an.
-_OPERATIVE_ADDRESS = re.compile(
-    r'(?i)\b(?:your|dein\w*)\s+(?:full\s+|complete\s+|real\s+|actual\s+|vollst[a\u00e4]ndige\w*\s+)?'
-    r'(system\s*prompt|systemprompt|instructions?|rules?|guidelines?|constraints?|training|'
-    r'programming|safety|anweisungen|regeln|richtlinien)\b')
+def _double_quote_spans(text):
+    """Paare gerader Anfuehrungszeichen, mit Stapel statt starrer Abwechslung.
+
+    Eine starre Abwechslung (erstes mit zweitem, drittes mit viertem) paart in
+    einem verschachtelten Zitat das aeussere Zeichen mit dem inneren. Der
+    zitierte Satz liegt dann zwischen zwei Spannen und gilt als unzitiert; ein
+    Sicherheitsartikel, der im Ganzen in Anfuehrungszeichen weitergereicht
+    wird, wurde so zum False Positive.
+
+    Deshalb wird jedes Zeichen erst eingeordnet: oeffnend, wenn davor
+    Zeilenanfang, Leerraum oder eine oeffnende Klammer steht, sonst
+    schliessend. Ein schliessendes ohne offenen Partner in derselben Zeile
+    zaehlt nicht.
+    """
+    spans = []
+    stack = []
+    for index, ch in enumerate(text):
+        if ch == '\n':
+            stack = []
+        elif ch == '"':
+            if index == 0 or text[index - 1] in _QUOTE_OPENS_AFTER:
+                stack.append(index)
+            elif stack:
+                spans.append((stack.pop(), index + 1))
+    return spans
 
 
 def citation_spans(text):
@@ -182,7 +241,7 @@ def citation_spans(text):
     Rueckgabe: nach Startposition sortierte, ueberschneidungsfreie Bereiche.
     Die Sortierung erlaubt is_cited() eine Binaersuche statt eines Scans.
     """
-    raw = []
+    raw = _double_quote_spans(text)
     for rx in _CITATION_RE:
         raw.extend((m.start(), m.end()) for m in rx.finditer(text))
     raw.sort()
@@ -199,39 +258,6 @@ def citation_spans(text):
 def is_cited(span, citations):
     idx = bisect.bisect_right(citations, (span[0], float('inf'))) - 1
     return idx >= 0 and span[1] <= citations[idx][1]
-
-
-# Fenster um einen Treffer, in dem nach Satzgrenzen gesucht wird. Ohne diese
-# Grenze wird die Suche auf grossen Dokumenten quadratisch.
-_SENTENCE_WINDOW = 300
-
-
-# Zeichen, die im Satz nichts bedeuten, die Suche nach dem Befehlsverb aber
-# stoeren. Ein U+200B direkt hinter dem Satzzeichen kommt an lstrip() vorbei und
-# schiebt sich zwischen Satzanfang und Verb: "^ignore" greift dann nicht mehr.
-_INVISIBLE_IN_SENTENCE = _ZW_CHARS | _BIDI_CHARS | _INVIS_FMT
-_INVISIBLE_TRANSLATION = {ord(c): None for c in _INVISIBLE_IN_SENTENCE}
-
-
-def _sentence_around(text, span):
-    left = text[max(0, span[0] - _SENTENCE_WINDOW):span[0]]
-    right = text[span[1]:span[1] + _SENTENCE_WINDOW]
-    start = span[0] - len(left) + max(left.rfind(c) for c in '.!?\n') + 1
-    ends = [p for p in (right.find(c) for c in '.!?\n') if p != -1]
-    end = span[1] + (min(ends) + 1 if ends else len(right))
-    # Der Schnitt liegt unmittelbar hinter dem Satzzeichen, der Satz traegt also
-    # noch den Trenner vorne. Mit fuehrendem Leerraum greift die Alternative "^"
-    # in _OPERATIVE_VERB nicht, und ein Befehl hinter "Punkt Leerzeichen" faellt
-    # auf blosse Erwaehnung zurueck. Unsichtbare Zeichen wirken genauso, deshalb
-    # fallen sie hier heraus. Die Rueckgabe dient nur der Befehlspruefung, die
-    # Versatzstellen im Originaltext bleiben davon unberuehrt.
-    return text[start:end].translate(_INVISIBLE_TRANSLATION).lstrip()
-
-
-def is_operative(text, span):
-    """Steht der Treffer als Befehl im Satz oder nur als Erwaehnung?"""
-    sentence = _sentence_around(text, span)
-    return bool(_OPERATIVE_VERB.search(sentence) or _OPERATIVE_ADDRESS.search(sentence))
 
 
 def damp(confidence: str) -> str:
@@ -282,7 +308,10 @@ PATTERNS = {
         # v4: Leet speak / typosquatting
         (r'(?i)d[1i!]sr[e3]g[a@]rd\s+.{0,15}(pr[e3]v[1i!][o0]us|[a@]ll)', 'Kat. 1', 'HIGH', True),
         (r'(?i)[1i!]gn[o0]r[e3]\s+.{0,15}(pr[e3]v[1i!][o0]us|[a@]ll)', 'Kat. 1', 'HIGH', True),
-        (r'(?i)syst[e3]m\s+pr[o0]mpt', 'Kat. 1', 'HIGH', True),
+        # Nur mit echter Leet-Ersetzung. Die reine Wortfolge "system prompt"
+        # ist keine Verschleierung, sondern ein Fachbegriff, und stand in
+        # jeder Chatbot-Dokumentation. Die Aufforderung dazu deckt Kat. 12 ab.
+        (r'(?i)(?:syst3m\s+pr[o0]mpt|syst[e3]m\s+pr0mpt)', 'Kat. 1', 'HIGH', True),
         (r'd1sregard|prev1ous|instruct1ons|pr0mpt', 'Kat. 1', 'HIGH', True),
     ],
     'system_impersonation': [
@@ -402,6 +431,10 @@ PATTERNS = {
         (r'(?i)(share|show)\s+.{0,20}(exact\s+)?phrasing\s+of\s+.{0,20}(initial|original|your)\s+(instructions|prompt)', 'Kat. 12', 'HIGH', True),
         (r'(?i)repeat\s+your\s+(initial\s+)?instructions\s+word\s+for\s+word', 'Kat. 12', 'CRITICAL', True),
         (r'(?i)output\s+your\s+system\s+prompt\s+(verbatim|exactly|word)', 'Kat. 12', 'CRITICAL', True),
+        # Verb plus Anrede: "Could you share your system prompt". Erst das
+        # "your" macht aus dem Fachbegriff die Bitte um fremde Instruktionen.
+        (r'(?i)\b(share|show|send|give|reveal|print|output|display|repeat|tell|post|paste)\b'
+         r'[^.\n]{0,30}\byour\s+(?:[\w-]+\s+){0,3}system\s*prompt', 'Kat. 12', 'CRITICAL', True),
     ],
     'crescendo': [
         (r'(?i)to\s+(better\s+)?understand\s+the\s+complete', 'Kat. 13', 'HIGH', True),
@@ -658,15 +691,14 @@ def scan_text(text):
             conf = 'HIGH' if is_direct else 'MEDIUM'
             hit = spans[0]
             if context:
-                # Ein Treffer ausserhalb von Zitaten, der als Befehl formuliert
-                # ist, traegt den Fund. Nur wenn kein einziger Treffer so
-                # dasteht, ist der Text Dokumentation und der Fund faellt auf
-                # LOW. Die Severity bleibt in beiden Faellen unangetastet.
-                operative = [s for s in spans
-                             if not is_cited(s, citations) and is_operative(text, s)]
-                if operative:
+                # Ein Treffer ausserhalb jedes Zitats traegt den Fund. Nur wenn
+                # jeder Treffer desselben Musters in einem Zitat oder Codeblock
+                # steht, ist der Text Dokumentation und der Fund faellt auf LOW.
+                # Die Severity bleibt in beiden Faellen unangetastet.
+                uncited = [s for s in spans if not is_cited(s, citations)]
+                if uncited:
                     conf = damp(conf)
-                    hit = operative[0]
+                    hit = uncited[0]
                 else:
                     conf = 'LOW'
 
@@ -735,10 +767,19 @@ MIN_REPORTABLE_SEVERITY = 'MEDIUM'
 
 
 def meaningful_findings(findings, threshold=MIN_REPORTABLE_SEVERITY):
-    """Funde ab Confidence MEDIUM und ab der geforderten Severity."""
+    """Funde ab der geforderten Severity.
+
+    Ab MEDIUM zaehlt nur, was auch Confidence MEDIUM oder hoeher traegt. Bei
+    Schwelle LOW zaehlen zusaetzlich die Funde, die der Kontext auf Confidence
+    LOW gedrueckt hat. Ohne diese Ausnahme gab es keinen Schalter, mit dem ein
+    Verteidiger die Abwertung ueberhaupt zu sehen bekam: `--fail-on LOW` lieferte
+    auf einem abgewerteten CRITICAL-Fund weiterhin Exit 0.
+    """
     limit = SEVERITY_ORDER.get(threshold, 2)
+    with_damped = limit <= SEVERITY_ORDER['LOW']
     return [f for f in findings
-            if is_actionable(f) and SEVERITY_ORDER.get(f.severity, 0) >= limit]
+            if (with_damped or is_actionable(f))
+            and SEVERITY_ORDER.get(f.severity, 0) >= limit]
 
 
 def is_detected(findings, threshold=MIN_REPORTABLE_SEVERITY):
@@ -748,7 +789,14 @@ def is_detected(findings, threshold=MIN_REPORTABLE_SEVERITY):
 
 @dataclass
 class ScanResult:
-    """Ein Scan-Durchlauf, so wie ihn CLI, Hook, Action und Evaluator lesen."""
+    """Ein Scan-Durchlauf, so wie ihn CLI, Hook, Action und Evaluator lesen.
+
+    `to_dict()` schickt Treffer und Beschreibung durch `redact()`. Sonst stand
+    bei `pis-scan --format json` der aus Unicode-Tags oder Base64 gewonnene
+    Klartext ungefiltert im maschinenlesbaren Bericht, waehrend Textausgabe,
+    SARIF und Hook ihn schon entschaerft haben. Die Felder eines `Finding`
+    selbst bleiben roh; wer die Bibliothek direkt benutzt, entschaerft selbst.
+    """
     findings: List[Finding] = field(default_factory=list)
     highest_severity: str = 'NONE'
     score: int = 100
@@ -766,8 +814,8 @@ class ScanResult:
                     'category': f.category,
                     'severity': f.severity,
                     'confidence': f.confidence,
-                    'pattern_matched': f.pattern_matched,
-                    'description': f.description,
+                    'pattern_matched': redact(f.pattern_matched),
+                    'description': redact(f.description),
                     'is_primary': f.is_primary,
                     'start': f.start,
                     'end': f.end,

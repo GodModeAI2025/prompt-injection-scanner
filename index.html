@@ -707,7 +707,7 @@ footer {
       <div class="flow-step">
         <div class="flow-num">03</div>
         <h3>Kontext-Pruefung</h3>
-        <p>Kontext senkt die Confidence, nicht die Severity. Zitierte Beispiele, Defense-Code und blosse Erwaehnungen fallen auf Confidence LOW und werden als INFO gefuehrt. Ein Befehl ausserhalb von Anfuehrungszeichen behaelt seine Severity, auch wenn ringsherum ein Lehrbuchtext steht.</p>
+        <p>Kontext senkt die Confidence, nicht die Severity. Auf Confidence LOW faellt ein Fund nur, wenn jeder seiner Treffer in einem Zitat, einem Code-Block oder zwischen Backticks steht. Ein Treffer ausserhalb behaelt seine Severity, auch wenn ringsherum ein Lehrbuchtext steht, und unabhaengig davon, wie der Satz formuliert ist. <code>--fail-on LOW</code> zaehlt die abgewerteten Funde mit.</p>
       </div>
       <div class="flow-step">
         <div class="flow-num">04</div>

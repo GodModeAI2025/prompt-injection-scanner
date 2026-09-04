@@ -27,6 +27,7 @@ from .engine import (
     get_highest,
     is_detected,
     meaningful_findings,
+    redact,
     scan,
     scan_text,
 )
@@ -72,6 +73,7 @@ __all__ = [
     'get_highest',
     'is_detected',
     'meaningful_findings',
+    'redact',
     'scan',
     'scan_text',
     '__version__',

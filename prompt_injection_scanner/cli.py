@@ -4,6 +4,11 @@ Liest Dateien, Standardeingabe oder einen Text vom Aufruf und meldet, was die
 Engine findet. Die Muster kommen aus `prompt_injection_scanner.engine`, es gibt
 hier keine zweite Erkennung und keine zweite Schwelle.
 
+Die Schwelle `--fail-on` steuert, welche Funde zaehlen. Ab MEDIUM zaehlen nur
+Funde mit Confidence MEDIUM oder hoeher; bei LOW zaehlen auch die Funde, die der
+Kontext abgewertet hat. Ein zitierter CRITICAL-Fund bleibt damit im Standardlauf
+still und wird mit `--fail-on LOW` sichtbar, mit Exit-Code 4 fuer seine Severity.
+
 Exit-Codes richten sich nach der hoechsten gefundenen Severity, damit eine
 Pipeline ohne JSON-Parsen entscheiden kann:
 
@@ -102,9 +107,12 @@ def main(argv=None):
     parser.add_argument('--output', metavar='DATEI', default=None,
                         help='Bericht in eine Datei schreiben statt nach stdout.')
     parser.add_argument('--fail-on', choices=SEVERITIES, default=MIN_REPORTABLE_SEVERITY,
-                        help='Ab welcher Severity ein Fund zaehlt. Standard: %s. '
-                             'Das ist dieselbe Schwelle, ab der der Evaluator einen Fall '
-                             'als erkannt zaehlt.' % MIN_REPORTABLE_SEVERITY)
+                        help='Ab welcher Severity ein Fund zaehlt. Standard: %s, '
+                             'dieselbe Schwelle, ab der der Evaluator einen Fall als '
+                             'erkannt zaehlt. LOW zaehlt zusaetzlich die Funde, die der '
+                             'Kontext auf Confidence LOW gedrueckt hat; das ist der '
+                             'Schalter, mit dem die Abwertung sichtbar wird.'
+                             % MIN_REPORTABLE_SEVERITY)
     parser.add_argument('--quiet', action='store_true',
                         help='Nur den Exit-Code liefern, keine Ausgabe.')
     parser.add_argument('--version', action='version',

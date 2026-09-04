@@ -113,8 +113,9 @@ def main(argv=None):
                     'Werkzeugaufruf als JSON von stdin und blockiert bei einem Fund.',
         epilog='Exit-Codes: 0 durchlassen, 2 blockieren, 1 Hook gescheitert.')
     parser.add_argument('--fail-on', choices=SEVERITIES, default=MIN_REPORTABLE_SEVERITY,
-                        help='Ab welcher Severity blockiert wird. Standard: %s.'
-                             % MIN_REPORTABLE_SEVERITY)
+                        help='Ab welcher Severity blockiert wird. Standard: %s. '
+                             'LOW blockiert zusaetzlich bei Funden, die der Kontext auf '
+                             'Confidence LOW gedrueckt hat.' % MIN_REPORTABLE_SEVERITY)
     parser.add_argument('--tools', metavar='NAME[,NAME...]', default=None,
                         help='Nur diese Werkzeugnamen pruefen. Ohne Angabe alle. '
                              'Die Vorauswahl gehoert eigentlich in den matcher der '

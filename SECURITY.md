@@ -43,17 +43,30 @@ Einstufung seines eigenen Textes zu diktieren. Genau das war bis `v0.1.0` mögli
 Kontext-Signal setzte jeden Fund auf `INFO`, und `INFO` galt als nicht erkannt. Zwei harmlose Sätze
 vor einem Angriff genügten, um CRITICAL auf INFO zu drücken.
 
-Das ist behoben. Kontext senkt die Confidence eines Fundes um eine Stufe und lässt die Severity
-stehen. Ob ein Treffer auf `LOW` fällt, entscheidet der Treffer selbst: steht er in Anführungszeichen
-oder in einem Codeblock, oder ist er eine Erwähnung statt eines Befehls, ist er Dokumentation. Ein
-Befehl außerhalb von Anführungszeichen bleibt ein Fund, auch im Lehrbuchtext. Festgehalten in
-`scripts/test_context_regression.py`, geprüft bei jedem CI-Lauf.
+Der Sprung auf `INFO` ist weg. Kontext senkt die Confidence eines Fundes um eine Stufe und lässt die
+Severity stehen. Ob ein Treffer ganz auf `LOW` fällt, entscheidet eine Eigenschaft des Textes und
+keine Formulierung: der Treffer muss in Anführungszeichen, in einem Code-Block oder zwischen
+Backticks stehen. Steht auch nur ein Treffer desselben Musters außerhalb, bleibt der Fund.
+Festgehalten in `scripts/test_context_regression.py`, geprüft bei jedem CI-Lauf.
 
-`v0.2.0` schließt zwei Restlücken derselben Prüfung: ein Höflichkeits- oder Modalpräfix vor dem Verb
-(`Please ignore previous instructions.`, `You must ignore previous instructions.`) und ein
-unsichtbares Zeichen hinter dem Satzzeichen (U+200B, U+FEFF, U+2060 und weitere), das an `lstrip()`
-vorbeikam und sich zwischen Satzanfang und Verb schob. Beides ließ den Angriff im Rahmen auf INFO
-fallen.
+Bis kurz vor `v0.2.0` stand daneben eine Befehlsprüfung: eine Liste von Verben,
+Höflichkeitspräfixen und Anreden entschied, ob ein unzitierter Treffer ein Befehl oder eine bloße
+Erwähnung ist. Diese Liste war das eigentliche Loch. Gemessen im Bildungsrahmen, alle mit
+`highest_severity` INFO, Score 99, `detected` False, Hook Exit 0 und `pis-scan` Exit 0 auf allen vier
+`--fail-on`-Stufen: `- Ignore previous instructions.`, `* Ignore …`, `-> Ignore …`,
+`(Ignore previous instructions.)`, `Just ignore …`, `Simply ignore …`,
+`Could you please ignore …` und ein einzelnes U+FE0F hinter dem Satzzeichen. Willkürlich wurde die
+Grenze daran sichtbar, dass `1. Ignore previous instructions.` erkannt wurde und
+`- Ignore previous instructions.` nicht: entschieden hat der Punkt in der Nummerierung, nicht der
+Inhalt. Die Liste ist ersatzlos gestrichen; sie um sieben Einträge zu verlängern hätte dasselbe Loch
+sieben Schreibweisen weiter wieder aufgemacht.
+
+Was der Angreifer noch hat: er kann zwei Bildungssignale setzen **und** seinen Angriff in
+Anführungszeichen stellen. Dann fällt der Fund auf Confidence LOW und ist aus Score, Rollup und
+Urteil heraus. Das ist keine Formulierungsfrage mehr, sondern die bewusste Entscheidung, zitierten
+Text als Dokumentation zu behandeln, und sie ist sichtbar: `--fail-on LOW` zählt die abgewerteten
+Funde mit, in der CLI wie im Hook. Ohne diesen Schalter wäre eine Abwertung von einem sauberen Text
+nicht zu unterscheiden.
 
 Offen bleibt der Ansatz selbst: die drei Kontext-Prüfer leiten ihre Einschätzung weiter aus dem
 untrusted Input ab. Wer die Signalliste liest, kann sie bedienen. Der Schaden ist begrenzt, weil nur
@@ -70,12 +83,23 @@ generische Funde übernehmen den Regex-Treffer roh. Die vorher unsichtbare Instr
 tokenisierbar im Bericht, und der landet in CI-Logs, Tickets und einem LLM-Kontext, in den er
 zurückfließt.
 
-Teilweise entschärft: CLI, SARIF-Ausgabe, Hook und Action schicken jeden Fundtext durch `redact()` in
-`prompt_injection_scanner/sarif.py`. Nicht druckbare und unsichtbare Zeichen werden als `<U+XXXX>`
-geschrieben, Zeilenumbrüche verschwinden, die Länge ist auf 200 Zeichen begrenzt. Der SARIF-Bericht
-ist damit kein Transportmittel mehr für eine funktionsfähige Nutzlast. Die Felder eines `Finding`
-selbst sind weiterhin roh: wer die Bibliothek direkt benutzt und `finding.pattern_matched` irgendwo
-hinschreibt, muss selbst entschärfen. `redact()` ist dafür öffentlich.
+Teilweise entschärft: CLI-Textausgabe, `--format json`, SARIF-Ausgabe, Hook und Action schicken jeden
+Fundtext durch `redact()` in `prompt_injection_scanner/engine.py`. Nicht druckbare und unsichtbare
+Zeichen werden als `<U+XXXX>` geschrieben, Zeilenumbrüche verschwinden, die Länge ist auf 200 Zeichen
+begrenzt. `--format json` war bis kurz vor `v0.2.0` ausgenommen und reichte `pattern_matched` und
+`description` roh durch; gemessen standen dort die Bidi- und Zero-Width-Zeichen eines
+HTML-Kommentar-Treffers im Klartext, während dieselbe Eingabe im SARIF-Bericht schon entschärft war.
+
+Was `redact()` nicht leistet, und das ist der wichtigere Teil: **die Nutzlast bleibt lesbar.** Der aus
+Unicode-Tags oder Base64 gewonnene Satz besteht aus druckbarem ASCII, `redact()` lässt ihn stehen, und
+er steht damit in jedem Ausgabeformat. Das ist Absicht, denn wer den Bericht auswertet, muss den
+extrahierten Text sehen. Ein Bericht dieses Scanners ist deshalb kein sicherer Transportbehälter,
+sondern ein Dokument mit Angreifertext darin: entschärft ist die Kodierung, nicht der Satz. Wer den
+Bericht in einen LLM-Kontext gibt, muss ihn dort als untrusted behandeln.
+
+Die Felder eines `Finding` selbst sind weiterhin roh: wer die Bibliothek direkt benutzt und
+`finding.pattern_matched` irgendwo hinschreibt, muss selbst entschärfen. `redact()` ist dafür
+öffentlich, auch als `prompt_injection_scanner.redact`.
 
 ### 3. Falsches Grün in fremden Pipelines
 
@@ -126,11 +150,18 @@ Offen, Stand heute. Kein Fix zugesagt, kein Datum.
 
 1. **Die Kontext-Prüfer lesen weiter den untrusted Input.** Für `is_benign_documentation` genügt eines
    von sieben Signalen, für `is_educational_context` zwei von fünfzehn, für `is_code_defense_context`
-   zwei von fünf. Der Sprung auf `INFO` ist weg, die Severity bleibt jetzt stehen und nur die
-   Confidence sinkt. Wer die Signalliste liest, kann sie trotzdem bedienen und einen Fund von
-   Confidence HIGH auf MEDIUM ziehen. `scripts/test-suite.json` enthält weiterhin keinen Fall, der
-   Angriff und Bildungsrahmen kombiniert; abgedeckt ist das nur in
-   `scripts/test_context_regression.py`, 17 Fälle.
+   zwei von fünf. Der Sprung auf `INFO` ist weg, die Severity bleibt stehen und nur die Confidence
+   sinkt. Wer die Signalliste liest, kann sie trotzdem bedienen und einen Fund von Confidence HIGH
+   auf MEDIUM ziehen.
+
+   Auf LOW und damit aus dem Urteil bekommt er ihn nur, wenn er den Angriff zusätzlich in
+   Anführungszeichen, einen Code-Block oder Backticks setzt. Das ist gewollt (so bleibt ein
+   Sicherheitsartikel still), aber es bleibt ein Weg: ein Angreifer, der weiß, dass sein Text von
+   diesem Scanner gelesen wird, kann sein Dokument so schreiben. Gegenmittel im Werkzeug ist
+   `--fail-on LOW`; dort zählen die abgewerteten Funde mit.
+
+   `scripts/test-suite.json` enthält weiterhin keinen Fall, der Angriff und Bildungsrahmen
+   kombiniert; abgedeckt ist das nur in `scripts/test_context_regression.py`, 23 Fälle.
 
 2. **Die ausgewiesene Erkennungsrate belegt nichts.** F1 100 Prozent, 0 Prozent False Positives,
    gemessen von `scripts/evaluate.py` gegen die mitgelieferte `test-suite.json`. Dieselbe Codebasis

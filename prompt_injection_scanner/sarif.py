@@ -13,14 +13,23 @@ Zwei Dinge, die GitHub braucht und die leicht fehlen:
 
 Der Fundtext wird nicht roh uebernommen. Ein SARIF-Bericht landet in der
 Oberflaeche eines fremden Repos und oft danach in einem LLM-Kontext; der
-Angreifertext darin bleibt Angreifertext. Deshalb `redact()`: unsichtbare
-Zeichen raus, Laenge begrenzt, alles in einer Zeile.
+Angreifertext darin bleibt Angreifertext. Deshalb `redact()` aus der Engine:
+unsichtbare Zeichen werden benannt, die Laenge ist begrenzt, alles steht in
+einer Zeile. Ein lesbarer Klartextbefehl bleibt lesbar; entschaerft ist die
+Kodierung, nicht der Satz.
 """
 
 import hashlib
 import json
 
-from .engine import SEVERITY_ORDER, meaningful_findings
+from .engine import SEVERITY_ORDER, meaningful_findings, redact
+
+# `redact()` steht seit v0.2.0 in der Engine, weil auch `ScanResult.to_dict()`
+# sie braucht und ein Import von hier nach dort ein Kreis waere. Der Name bleibt
+# hier erreichbar: `from prompt_injection_scanner.sarif import redact` laeuft
+# unveraendert weiter.
+__all__ = ['TOOL_NAME', 'INFORMATION_URI', 'redact', 'build_report', 'dumps']
+
 
 TOOL_NAME = 'Prompt Injection Scanner'
 INFORMATION_URI = 'https://github.com/GodModeAI2025/prompt-injection-scanner'
@@ -35,33 +44,6 @@ _LEVEL = {
     'LOW': ('note', '2.0'),
     'INFO': ('note', '0.5'),
 }
-
-_MAX_TEXT = 200
-
-
-def redact(text):
-    """Angreifertext fuer den Bericht entschaerfen.
-
-    Unsichtbare Zeichen werden benannt statt durchgereicht, Zeilenumbrueche
-    verschwinden, und die Laenge ist begrenzt. Ein SARIF-Bericht ist ein
-    Transportmittel, kein Ort fuer eine funktionsfaehige Nutzlast.
-    """
-    out = []
-    for ch in text:
-        cp = ord(ch)
-        if ch in '\r\n\t':
-            out.append(' ')
-        elif cp < 0x20 or cp == 0x7F:
-            out.append('<U+%04X>' % cp)
-        elif ch.isprintable():
-            out.append(ch)
-        else:
-            out.append('<U+%04X>' % cp)
-    joined = ' '.join(''.join(out).split())
-    if len(joined) > _MAX_TEXT:
-        joined = joined[:_MAX_TEXT - 3] + '...'
-    return joined
-
 
 def _rule_id(finding):
     return 'PIS-' + finding.category.replace('Kat. ', 'KAT').replace(' ', '')

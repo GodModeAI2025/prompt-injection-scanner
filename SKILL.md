@@ -213,15 +213,17 @@ Kontext senkt die **Confidence** eines Fundes. Die **Severity** bleibt, was das 
 
 Geprüft wird pro Treffer, nicht pro Dokument:
 
-1. Steht der Treffer in Anführungszeichen, in einem Code-Block oder sonst erkennbar als Beispiel? → Confidence LOW, im Bericht als INFO führen.
-2. Ist der Treffer eine Erwähnung statt eines Befehls, also ohne Imperativ und ohne Anrede des Modells ("your system prompt", "deine Anweisungen")? → Confidence LOW, im Bericht als INFO führen.
-3. Steht der Treffer als Befehl außerhalb von Zitaten, obwohl der Text ringsherum nach Lehrbuch, Report oder Defense-Code aussieht? → Severity bleibt unverändert, Confidence eine Stufe runter (HIGH wird MEDIUM). Das ist der Bildungsrahmen-Bypass: zwei harmlose Sätze vor einem echten Angriff.
+1. Steht der Treffer in Anführungszeichen, in einem Code-Block oder zwischen Backticks? → Confidence LOW, im Bericht als INFO führen.
+2. Steht irgendein Treffer desselben Musters außerhalb jedes Zitats, obwohl der Text ringsherum nach Lehrbuch, Report oder Defense-Code aussieht? → Severity bleibt unverändert, Confidence eine Stufe runter (HIGH wird MEDIUM). Das ist der Bildungsrahmen-Bypass: zwei harmlose Sätze vor einem echten Angriff.
+3. Nicht danach fragen, ob der Treffer "als Befehl formuliert" ist. Ein Aufzählungsstrich, ein *Just*, ein *Simply* oder ein unsichtbares Zeichen davor ändert am Angriff nichts. Genau diese Frage war in der Regex-Engine das Loch: `1. Ignore previous instructions.` galt als Befehl, `- Ignore previous instructions.` als Erwähnung, und beide Male stand derselbe Satz da.
 4. Versteckte Payloads (Unicode-Tags, Zero-Width, Base64) sind nie Zitate. Hier senkt Kontext die Confidence höchstens auf MEDIUM.
-5. Kumulationsregel: Einzelnes schwaches Signal ohne Befehlscharakter = Confidence LOW. 2+ Signale oder ein eindeutiger Befehl = Fund mit voller Severity.
+5. Kumulationsregel: ein einzelnes schwaches Signal, das nur zitiert vorkommt = Confidence LOW. 2+ Signale oder ein unzitierter Treffer = Fund mit voller Severity.
 
 Für Score, Gesamt-Severity und die Ja/Nein-Entscheidung zählen nur Funde ab Confidence MEDIUM. LOW-Funde stehen trotzdem im Bericht, damit nachvollziehbar bleibt, was gesehen und warum abgewertet wurde.
 
-Dieselbe Regel steckt in `prompt_injection_scanner/engine.py` (`context_signals`, `is_cited`, `is_operative`, `damp`) und ist dort mit `scripts/test_context_regression.py` abgesichert. Zwei Formulierungen, die diese Prüfung früher umgingen, sind seit `v0.2.0` mit erfasst: ein Höflichkeits- oder Modalpräfix vor dem Befehlsverb (*please*, *kindly*, *bitte*, *you must*, *du musst*) und ein unsichtbares Zeichen zwischen Satzzeichen und Verb (U+200B, U+FEFF, U+2060 und weitere). Beide Fälle sind Befehle und keine Erwähnungen, also unverändert in der Severity.
+Dieselbe Regel steckt in `prompt_injection_scanner/engine.py` (`context_signals`, `citation_spans`, `is_cited`, `damp`) und ist dort mit `scripts/test_context_regression.py` abgesichert, 23 Fälle. Die frühere Befehlsprüfung (`is_operative` und ihre Verb-, Präfix- und Anredelisten) gibt es nicht mehr: sie ließ sich mit sieben gemessenen Schreibweisen umgehen, ohne den Angriff zu ändern. Eine Liste, an der man vorbeischreiben kann, ist kein Kontext-Kriterium.
+
+Was der Text damit noch erreichen kann: mit zwei Bildungssignalen und dem Angriff in Anführungszeichen fällt der Fund auf Confidence LOW. Im Bericht bleibt er stehen, für die Ja/Nein-Entscheidung zählt er nicht. Wer ihn zählen will, nimmt `pis-scan --fail-on LOW`.
 
 ### 4. Severity bewerten
 

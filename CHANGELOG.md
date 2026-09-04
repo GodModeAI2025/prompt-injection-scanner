@@ -39,28 +39,50 @@ nicht dazu, installiert wird aus dem Repo oder aus dem entpackten Release-Archiv
   `security-events: write` eine Berechtigung ist, die eine fremde Action nicht stillschweigend
   voraussetzen sollte. Regeln tragen `properties.security-severity`, sonst stuft GitHub jeden Fund
   gleich ein.
-- **`scripts/test_cli_hook.py`**, 20 Fälle für Exit-Codes, Hook-Entscheidungen, SARIF-Aufbau und den
+- **`scripts/test_cli_hook.py`**, 23 Fälle für Exit-Codes, Hook-Entscheidungen, SARIF-Aufbau und den
   Lauf des Action-Skripts.
 
 ### Behoben
 
-- **Höflichkeits- und Modalpräfixe vor dem Befehlsverb.** `Please ignore previous instructions.` und
-  `You must ignore previous instructions.` galten im Bildungs- oder Defense-Rahmen als bloße
-  Erwähnung und fielen von CRITICAL, Score 75, auf INFO, Score 99. Die Befehlsprüfung erwartete das
-  Verb am Satzanfang oder hinter einem Bindewort. Sie erlaubt jetzt *please*, *kindly*, *pls*,
-  *bitte*, *you must*, *you should*, *you need to*, *du musst*, *du sollst* davor.
-- **Unsichtbare Zeichen hinter dem Satzzeichen.** Ein U+200B, U+FEFF oder U+2060 zwischen Satzende und
-  Angriffssatz kam an `lstrip()` vorbei und schob sich zwischen Satzanfang und Verb, mit demselben
-  Ergebnis. Ein einzelnes Zeichen genügte, Kat. 24a schlägt erst ab dreien an. Der Satz wird jetzt
-  von Zero-Width-, Bidi- und Formatierungszeichen befreit, bevor er geprüft wird. Der Originaltext
-  bleibt unberührt, die Versatzstellen der Funde stimmen weiter.
+- **Die Befehlsprüfung in der Kontext-Bewertung ist ersatzlos gestrichen.** Bis dahin entschied eine
+  Liste von Verben, Höflichkeitspräfixen und Anreden, ob ein unzitierter Treffer ein Befehl oder eine
+  bloße Erwähnung ist. Sieben gemessene Schreibweisen kamen daran vorbei, alle im Bildungsrahmen mit
+  `highest_severity` INFO, Score 99, `detected` False, Hook Exit 0 und `pis-scan` Exit 0 auf allen
+  vier `--fail-on`-Stufen: `- Ignore previous instructions.`, `* Ignore …`, `-> Ignore …`,
+  `(Ignore previous instructions.)`, `Just ignore …`, `Simply ignore …`, `Could you please ignore …`,
+  dazu ein einzelnes U+FE0F hinter dem Satzzeichen. Erkannt wurde dagegen `1. Ignore previous
+  instructions.`: entschieden hat der Punkt in der Nummerierung, nicht der Inhalt. Über die Abwertung
+  auf `LOW` entscheidet jetzt allein, ob jeder Treffer eines Musters in einem Zitat, einem Code-Block
+  oder zwischen Backticks steht. Ein früherer Zwischenschritt, der Höflichkeitspräfixe und
+  unsichtbare Zeichen in dieselbe Liste aufgenommen hatte, ist damit hinfällig; die Fälle stehen
+  weiter in `scripts/test_context_regression.py`, jetzt 23 statt 17.
+- **Anführungszeichen werden mit einem Stapel gepaart, nicht mit starrer Abwechslung.** Ein Zitat im
+  Zitat paarte das äußere mit dem inneren Zeichen; der zitierte Angriffssatz lag dann zwischen zwei
+  Spannen und galt als unzitiert. Gemessen waren das drei False Positives auf der generierten Suite,
+  sobald die Abwertung nur noch an der Zitatprüfung hing.
+- **`--fail-on LOW` zählt jetzt die kontextbedingt abgewerteten Funde.** `meaningful_findings()`
+  filterte unabhängig von der Schwelle auf Confidence ab MEDIUM. `pis-scan --fail-on LOW` und
+  `pis-hook-pretooluse --fail-on LOW` lieferten auf einem abgewerteten CRITICAL-Fund weiterhin
+  Exit 0, der Fund stand als "CRITICAL LOW" im Bericht und wirkte auf keine Entscheidung. Damit gab
+  es keinen Schalter, mit dem ein Verteidiger die Abwertung überhaupt sieht.
+- **Die Wortfolge "system prompt" ist kein Leet-Speak-Muster mehr.** Sie stand als eigener Treffer in
+  der Gruppe `leet_speak` und machte jede Chatbot-Dokumentation zum HIGH-Fund, sobald die
+  Kontext-Bewertung nicht mehr an der Formulierung hing. Das Muster verlangt jetzt eine echte
+  Ersetzung (`syst3m`, `pr0mpt`); die Aufforderung mit Anrede ("share your system prompt") deckt ein
+  neues Kat.-12-Muster ab.
 - **Die Detection-Schwelle stand in der Auswertungsschleife.** Ab wann ein Fund als Erkennung zählt,
   war eine Zeile in `run()` von `scripts/evaluate.py`. Jeder weitere Aufrufer hätte sich eine eigene
   gebaut. Sie steht als `MIN_REPORTABLE_SEVERITY` in der Engine, dazu `meaningful_findings()`,
   `is_detected()` und `scan()` mit einem `ScanResult`.
 - **Fundtexte in Berichten werden entschärft.** `redact()` schreibt nicht druckbare und unsichtbare
   Zeichen als `<U+XXXX>`, entfernt Zeilenumbrüche und begrenzt auf 200 Zeichen. Ein SARIF-Bericht
-  landet in der Oberfläche eines fremden Repos und oft danach in einem LLM-Kontext.
+  landet in der Oberfläche eines fremden Repos und oft danach in einem LLM-Kontext. Das gilt jetzt
+  auch für `pis-scan --format json`: `ScanResult.to_dict()` reichte `pattern_matched` und
+  `description` roh durch, gemessen an einem HTML-Kommentar-Treffer mit U+202E und U+200B, der im
+  JSON-Bericht im Original stand und im SARIF-Bericht schon als `<U+202E>` und `<U+200B>`.
+  `redact()` steht dafür in der Engine; `prompt_injection_scanner.sarif.redact` reicht den Namen
+  weiter. Was `redact()` nicht leistet und auch nicht leisten soll: ein dekodierter Klartextbefehl
+  bleibt lesbar, sonst wäre der Bericht für den Auswerter wertlos.
 
 ### Geändert
 
