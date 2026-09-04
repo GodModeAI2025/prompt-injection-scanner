@@ -205,7 +205,8 @@ _CITATION_RE = [
 ]
 
 # Zeichen, nach denen ein gerades Anfuehrungszeichen oeffnet statt schliesst.
-_QUOTE_OPENS_AFTER = frozenset(' \t([{<\u00a0')
+# Der Zeilenumbruch gehoert dazu: ein Zitat, das eine Zeile beginnt, oeffnet.
+_QUOTE_OPENS_AFTER = frozenset(' \t\n\r([{<\u00a0')
 
 
 def _double_quote_spans(text):

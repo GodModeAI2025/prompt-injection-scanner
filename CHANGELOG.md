@@ -55,7 +55,7 @@ nicht dazu, installiert wird aus dem Repo oder aus dem entpackten Release-Archiv
   auf `LOW` entscheidet jetzt allein, ob jeder Treffer eines Musters in einem Zitat, einem Code-Block
   oder zwischen Backticks steht. Ein früherer Zwischenschritt, der Höflichkeitspräfixe und
   unsichtbare Zeichen in dieselbe Liste aufgenommen hatte, ist damit hinfällig; die Fälle stehen
-  weiter in `scripts/test_context_regression.py`, jetzt 23 statt 17.
+  weiter in `scripts/test_context_regression.py`, jetzt 24 statt 17.
 - **Anführungszeichen werden mit einem Stapel gepaart, nicht mit starrer Abwechslung.** Ein Zitat im
   Zitat paarte das äußere mit dem inneren Zeichen; der zitierte Angriffssatz lag dann zwischen zwei
   Spannen und galt als unzitiert. Gemessen waren das drei False Positives auf der generierten Suite,

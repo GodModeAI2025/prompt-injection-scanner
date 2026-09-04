@@ -167,7 +167,7 @@ Offen, Stand heute. Kein Fix zugesagt, kein Datum.
    `--fail-on LOW`; dort zählen die abgewerteten Funde mit.
 
    `scripts/test-suite.json` enthält weiterhin keinen Fall, der Angriff und Bildungsrahmen
-   kombiniert; abgedeckt ist das nur in `scripts/test_context_regression.py`, 23 Fälle.
+   kombiniert; abgedeckt ist das nur in `scripts/test_context_regression.py`, 24 Fälle.
 
 2. **Die ausgewiesene Erkennungsrate belegt nichts.** F1 100 Prozent, 0 Prozent False Positives,
    gemessen von `scripts/evaluate.py` gegen die mitgelieferte `test-suite.json`. Dieselbe Codebasis

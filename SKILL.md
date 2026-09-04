@@ -221,7 +221,7 @@ Geprüft wird pro Treffer, nicht pro Dokument:
 
 Für Score, Gesamt-Severity und die Ja/Nein-Entscheidung zählen nur Funde ab Confidence MEDIUM. LOW-Funde stehen trotzdem im Bericht, damit nachvollziehbar bleibt, was gesehen und warum abgewertet wurde.
 
-Dieselbe Regel steckt in `prompt_injection_scanner/engine.py` (`context_signals`, `citation_spans`, `is_cited`, `damp`) und ist dort mit `scripts/test_context_regression.py` abgesichert, 23 Fälle. Die frühere Befehlsprüfung (`is_operative` und ihre Verb-, Präfix- und Anredelisten) gibt es nicht mehr: sie ließ sich mit sieben gemessenen Schreibweisen umgehen, ohne den Angriff zu ändern. Eine Liste, an der man vorbeischreiben kann, ist kein Kontext-Kriterium.
+Dieselbe Regel steckt in `prompt_injection_scanner/engine.py` (`context_signals`, `citation_spans`, `is_cited`, `damp`) und ist dort mit `scripts/test_context_regression.py` abgesichert, 24 Fälle. Die frühere Befehlsprüfung (`is_operative` und ihre Verb-, Präfix- und Anredelisten) gibt es nicht mehr: sie ließ sich mit sieben gemessenen Schreibweisen umgehen, ohne den Angriff zu ändern. Eine Liste, an der man vorbeischreiben kann, ist kein Kontext-Kriterium.
 
 Was der Text damit noch erreichen kann: mit zwei Bildungssignalen und dem Angriff in Anführungszeichen fällt der Fund auf Confidence LOW. Im Bericht bleibt er stehen, für die Ja/Nein-Entscheidung zählt er nicht. Wer ihn zählen will, nimmt `pis-scan --fail-on LOW`.
 
