@@ -707,7 +707,7 @@ footer {
       <div class="flow-step">
         <div class="flow-num">03</div>
         <h3>Kontext-Pruefung</h3>
-        <p>Entscheidungsbaum gegen False Positives: Ist es ein Lehrbuch? Defense-Code? Zitiert? Einzelnes schwaches Signal? Dann kein Fund.</p>
+        <p>Kontext senkt die Confidence, nicht die Severity. Zitierte Beispiele, Defense-Code und blosse Erwaehnungen fallen auf Confidence LOW und werden als INFO gefuehrt. Ein Befehl ausserhalb von Anfuehrungszeichen behaelt seine Severity, auch wenn ringsherum ein Lehrbuchtext steht.</p>
       </div>
       <div class="flow-step">
         <div class="flow-num">04</div>
@@ -860,6 +860,7 @@ footer {
       &#x2502;&nbsp;&nbsp; &#x2514;&#x2500;&#x2500; <span class="d">hardening-templates.md</span> <span class="c">&mdash; Copy-Paste-Vorlagen zum Haerten</span><br>
       &#x251C;&#x2500;&#x2500; <span class="f">scripts/</span><br>
       &#x2502;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="d">evaluate.py</span> <span class="c">&mdash; Automatisierter Pattern-Tester mit Unicode-Detection</span><br>
+      &#x2502;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="d">test_context_regression.py</span> <span class="c">&mdash; Regressionstests der Kontext-Bewertung</span><br>
       &#x2502;&nbsp;&nbsp; &#x2514;&#x2500;&#x2500; <span class="d">test-suite.json</span> <span class="c">&mdash; 66 Tests (50 boesartig, 16 gutartig)</span><br>
       &#x2514;&#x2500;&#x2500; <span class="f">red-team-generator/</span> <span class="c" style="color:var(--green);">&mdash; NEU</span><br>
       &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="d">SKILL.md</span> <span class="c">&mdash; Dokumentation und Nutzung</span><br>
