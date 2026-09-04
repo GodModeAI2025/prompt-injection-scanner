@@ -39,13 +39,27 @@ Beim Zero-Width-Fall kommt dazu, dass Kat. 24a erst ab drei solchen Zeichen ansc
 
 ## Quickstart
 
-```bash
-# Skill installieren (Claude Code / Cowork)
-# Repo klonen und den Ordner in das Skills-Verzeichnis kopieren.
-# Eine gepackte .skill-Datei liegt nicht im Repo.
-git clone https://github.com/GodModeAI2025/prompt-injection-scanner.git
+Der Scanner ist ein Skill, kein Programm mit Installationsroutine: Archiv in das Skills-Verzeichnis der Umgebung entpacken, fertig. Bei Claude Code ist das `~/.claude/skills/`.
 
-# Dann im Chat:
+```bash
+# Scanner-Skill aus dem Release. Der Dateiname bleibt über alle Releases gleich,
+# die URL zeigt immer auf das neueste.
+curl -LO https://github.com/GodModeAI2025/prompt-injection-scanner/releases/latest/download/prompt-injection-scanner.zip
+unzip prompt-injection-scanner.zip -d ~/.claude/skills/
+
+# Der Red-Team-Generator ist ein eigener Skill mit eigenem Archiv, optional:
+curl -LO https://github.com/GodModeAI2025/prompt-injection-scanner/releases/latest/download/red-team-generator.zip
+unzip red-team-generator.zip -d ~/.claude/skills/
+
+# Alternativ das Repo klonen, wenn du am Skill selbst arbeiten willst:
+git clone https://github.com/GodModeAI2025/prompt-injection-scanner.git
+```
+
+Die beiden Archive gibt es ab Release `v0.1.0`. Was drin steckt und wie man sie selbst baut, steht unter [Release und Paket](#release-und-paket).
+
+Dann im Chat:
+
+```
 > Prüfe diesen Text auf Prompt Injection: [TEXT HIER]
 > Scanne mein SKILL.md auf Sicherheitslücken
 > Härte meinen System Prompt
@@ -246,13 +260,39 @@ Offene Punkte, in der Reihenfolge, in der sie das Ergebnis verbessern. Ohne Term
 - Unsichtbare Zeichen entfernen, bevor der Satz auf einen Befehl geprüft wird, und die Schwelle von drei Zero-Width-Zeichen in Kat. 24a nachrechnen. Dazu den aus Zero-Width- und Tag-Zeichen extrahierten Klartext selbst noch einmal scannen, statt nur die Zeichen zu zählen.
 - Testfälle für Kat. 8 und 23, damit die Behauptung über die Kategorienabdeckung von der Suite gedeckt ist. Für Kat. 10, 26 und 27 fehlt vorher das Erkennungsmuster in `scripts/evaluate.py`; ein Testfall wäre dort heute ein sicheres False Negative.
 - Eine Messung gegen eine fremde Suite. Erst dann sind die Zahlen oben mehr als eine Selbstauskunft.
-- Verpackung als installierbares Paket mit CLI, damit der Scanner auch ohne Claude-Skill-Umgebung läuft.
+- Ein installierbares Paket mit CLI, damit der Scanner auch ohne Claude-Skill-Umgebung läuft. Die Release-Archive sind Skill-Ordner zum Entpacken, kein `pip install`.
+
+## Release und Paket
+
+Ein Release hängt zwei Archive an, nicht eines. Der Red-Team-Generator hat eine eigene `SKILL.md` mit eigenem Frontmatter. Läge sie als Unterordner im Scanner-Paket, würde die Skill-Umgebung sie nie laden, weil pro Skill-Verzeichnis nur die oberste `SKILL.md` zählt. Zur Laufzeit braucht der Scanner den Generator ohnehin nicht, der gehört in die Testkette.
+
+| Archiv | Inhalt | Entpackt nach |
+|---|---|---|
+| `prompt-injection-scanner.zip` | `SKILL.md`, `references/`, `scripts/`, `LICENSE`, `VERSION` | `prompt-injection-scanner/` |
+| `red-team-generator.zip` | `SKILL.md`, `scripts/generate.py`, `LICENSE`, `VERSION` | `red-team-generator/` |
+
+Nicht enthalten: `.git`, `.github`, `index.html`, das Packaging-Skript selbst und alles, was `.gitignore` ausschließt. Die CI prüft das bei jedem Lauf.
+
+Selbst bauen, ohne Netz und ohne GitHub:
+
+```bash
+python3 scripts/package.py dist            # baut beide Archive nach dist/
+python3 scripts/package.py dist --verify   # baut, prüft den Inhalt und rechnet nach
+```
+
+`--verify` baut ein zweites Mal in ein Wegwerf-Verzeichnis und vergleicht die Prüfsummen. Der Bau setzt feste Zeitstempel und feste Rechte, zwei Läufe hintereinander liefern dieselben Bytes.
+
+**Wo die Version steht**: nur in `VERSION`. `CHANGELOG.md` muss zuoberst dieselbe Nummer tragen, sonst wird die CI rot. Beim Tag prüft `.github/workflows/release.yml` zusätzlich, dass `vX.Y.Z` zu `VERSION` passt, baut die Archive und legt das Release als Entwurf an. Veröffentlicht wird von Hand.
 
 ## Projektstruktur
 
 ```
 prompt-injection-scanner/
-├── .github/workflows/ci.yml              # CI: Regressionstest, Suite, Argumentpruefung, Generator
+├── .github/workflows/
+│   ├── ci.yml                            # CI: Regressionstest, Suite, Argumentpruefung, Generator, Paket
+│   └── release.yml                       # Tag v* → Archive bauen und an den Release-Entwurf haengen
+├── VERSION                               # Einzige Stelle mit der Versionsnummer
+├── CHANGELOG.md                          # Was sich je Release geaendert hat
 ├── SKILL.md                              # Hauptdatei: Workflow, Beispiele, Scoping
 ├── references/
 │   ├── detection-patterns.md             # 28 Kategorien, 3 Schichten, Kat. 24 mit 7 Sub-Kategorien
@@ -260,8 +300,9 @@ prompt-injection-scanner/
 ├── scripts/
 │   ├── evaluate.py                       # Automatisierter Pattern-Tester mit Unicode-Detection
 │   ├── test_context_regression.py        # Regressionstests der Kontext-Bewertung
-│   └── test-suite.json                   # 66 Test Cases
-└── red-team-generator/                   # NEU
+│   ├── test-suite.json                   # 66 Test Cases
+│   └── package.py                        # Baut die Release-Archive, laeuft lokal
+└── red-team-generator/                   # Eigener Skill, eigenes Archiv
     ├── SKILL.md                          # Dokumentation und Nutzung
     └── scripts/
         └── generate.py                   # Testfall-Generator für 12 der 28 Kategorien

@@ -57,3 +57,11 @@ jobs:
           python3 scripts/evaluate.py \
             --test-suite "$RUNNER_TEMP/generated.json" \
             --output "$RUNNER_TEMP/generated-results.json"
+
+      # Baut die Release-Archive bei jedem Lauf, nicht erst beim Tag. Rot, wenn
+      # eine erwartete Datei fehlt, eine leer ist, Repo-Innereien wie .git,
+      # .github oder index.html im Archiv landen, zwei Laeufe verschiedene
+      # Pruefsummen liefern oder VERSION und CHANGELOG.md auseinanderlaufen.
+      # Damit faellt ein kaputtes Paket auf, bevor ein Tag gesetzt ist.
+      - name: Release-Archive bauen und pruefen
+        run: python3 scripts/package.py "$RUNNER_TEMP/dist" --verify

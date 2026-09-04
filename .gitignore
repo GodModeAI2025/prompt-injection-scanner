@@ -1,3 +1,4 @@
 scripts/eval-results.json
 scripts/extended-tests.json
 __pycache__/
+dist/

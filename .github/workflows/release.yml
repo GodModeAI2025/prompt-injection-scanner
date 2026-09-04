@@ -1,0 +1,45 @@
+name: Release
+
+# Laeuft, wenn ein Tag der Form v0.1.0 geschoben wird. Der Tag kommt vom Owner.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Archive bauen und an das Release haengen
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      # Die gesamte Packaging-Logik steht in scripts/package.py und laeuft auch
+      # lokal. Hier wird sie nur aufgerufen. --verify prueft Inhalt, verbotene
+      # Pfade und Reproduzierbarkeit, --expect-tag haelt den Tag gegen VERSION:
+      # ein Tag v0.2.0 auf einem Stand mit VERSION 0.1.0 bricht ab, bevor
+      # irgendetwas veroeffentlicht wird.
+      - name: Archive bauen und pruefen
+        env:
+          TAG: ${{ github.ref_name }}
+        run: python3 scripts/package.py dist --verify --expect-tag "$TAG"
+
+      # Legt das Release als Entwurf an und haengt beide Archive daran.
+      # Veroeffentlicht wird von Hand, zusammen mit dem Text aus CHANGELOG.md.
+      # fail_on_unmatched_files: lieber kein Release als eines ohne Artefakt.
+      - name: Entwurf des Releases mit den Archiven anlegen
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/prompt-injection-scanner.zip
+            dist/red-team-generator.zip
