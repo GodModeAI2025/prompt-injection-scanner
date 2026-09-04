@@ -206,15 +206,21 @@ Lade die Pattern-Bibliothek: `references/detection-patterns.md` (28 Kategorien, 
 **Schicht 2 — Semantische Analyse (Kat. 13-22):** Absicht hinter dem Text. Crescendo, Social Engineering, Roleplay.
 **Schicht 3 — Systemische Bewertung (Kat. 23-28):** Multi-Vektor, Anti-Detection, Supply-Chain.
 
-### 3. Kontext-Prüfung (False-Positive-Vermeidung)
+### 3. Kontext-Prüfung (Confidence senken, nicht abschalten)
 
-Bevor ein Fund gemeldet wird, diese Fragen durchgehen:
+Kontext senkt die **Confidence** eines Fundes. Die **Severity** bleibt, was das Muster hergibt. Ein Lehrbuchtext ringsherum macht aus einem Angriff keinen harmlosen Satz, er macht nur die Absicht unsicherer.
 
-1. Meta-Dokument mit Angriffsbeispielen als Zitate? → KEIN Fund
-2. Defense-Code der Angriffe *erkennt* (validate_input, blocklist)? → KEIN Fund
-3. Bezieht sich die Phrase auf Daten/Objekte statt auf AI-Instruktionen? → KEIN Fund
-4. Wird das Muster in Anführungszeichen diskutiert statt ausgeführt? → KEIN Fund
-5. Kumulationsregel: Einzelnes schwaches Signal = KEIN Fund. 2+ Signale oder starkes = Fund.
+Geprüft wird pro Treffer, nicht pro Dokument:
+
+1. Steht der Treffer in Anführungszeichen, in einem Code-Block oder sonst erkennbar als Beispiel? → Confidence LOW, im Bericht als INFO führen.
+2. Ist der Treffer eine Erwähnung statt eines Befehls, also ohne Imperativ und ohne Anrede des Modells ("your system prompt", "deine Anweisungen")? → Confidence LOW, im Bericht als INFO führen.
+3. Steht der Treffer als Befehl außerhalb von Zitaten, obwohl der Text ringsherum nach Lehrbuch, Report oder Defense-Code aussieht? → Severity bleibt unverändert, Confidence eine Stufe runter (HIGH wird MEDIUM). Das ist der Bildungsrahmen-Bypass: zwei harmlose Sätze vor einem echten Angriff.
+4. Versteckte Payloads (Unicode-Tags, Zero-Width, Base64) sind nie Zitate. Hier senkt Kontext die Confidence höchstens auf MEDIUM.
+5. Kumulationsregel: Einzelnes schwaches Signal ohne Befehlscharakter = Confidence LOW. 2+ Signale oder ein eindeutiger Befehl = Fund mit voller Severity.
+
+Für Score, Gesamt-Severity und die Ja/Nein-Entscheidung zählen nur Funde ab Confidence MEDIUM. LOW-Funde stehen trotzdem im Bericht, damit nachvollziehbar bleibt, was gesehen und warum abgewertet wurde.
+
+Dieselbe Regel steckt in `scripts/evaluate.py` (`context_signals`, `is_cited`, `is_operative`, `damp`) und ist dort mit `scripts/test_context_regression.py` abgesichert.
 
 ### 4. Severity bewerten
 
@@ -229,6 +235,7 @@ Bevor ein Fund gemeldet wird, diese Fragen durchgehen:
 ### 5. Score und Bericht
 
 Score: Start 100. Pro Fund: CRITICAL −25, HIGH −15, MEDIUM −8, LOW −3, INFO −1.
+Funde mit Confidence LOW zählen dabei wie INFO (−1), ihre Severity bleibt im Bericht aber sichtbar.
 Boni: Multi-Vektor −10, Indirekte Injection −5, Encoding −5. Minimum 0.
 Ampel: 🟢 ≥80 | 🟡 40-79 | 🔴 <40
 

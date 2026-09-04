@@ -26,6 +26,10 @@ class Finding:
 
 SEVERITY_ORDER = {'CRITICAL': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1, 'INFO': 0, 'NONE': -1}
 SEVERITY_SCORE = {'CRITICAL': 25, 'HIGH': 15, 'MEDIUM': 8, 'LOW': 3, 'INFO': 1}
+CONFIDENCE_ORDER = {'HIGH': 3, 'MEDIUM': 2, 'LOW': 1}
+
+# Ab dieser Confidence zaehlt ein Fund fuer Score, Severity-Rollup und Detection.
+MIN_ACTIONABLE_CONFIDENCE = 2
 
 # ============================================================
 # IMPROVED Context Classifiers
@@ -75,6 +79,87 @@ def is_benign_documentation(text: str) -> bool:
         r'(?i)how\s+(to\s+)?(structure|design|write)\s+(better\s+)?system\s+prompts?',
     ]
     return sum(1 for p in signals if re.search(p, text)) >= 1
+
+
+def context_signals(text: str) -> list:
+    """Alle zutreffenden Kontext-Klassifikatoren, als Liste von Namen."""
+    signals = []
+    if is_educational_context(text):
+        signals.append('educational')
+    if is_code_defense_context(text):
+        signals.append('code-defense')
+    if is_benign_documentation(text):
+        signals.append('benign-doc')
+    return signals
+
+
+# ============================================================
+# Kontext-Gewichtung: Zitat- und Befehlspruefung pro Treffer
+# ============================================================
+#
+# Kontext senkt die Confidence eines Fundes, er ueberschreibt nie die Severity.
+# Ob ein Treffer auf LOW faellt (und damit aus Score und Rollup verschwindet),
+# entscheidet der Treffer selbst: steht er in einem Zitat oder Codeblock, oder
+# ist er eine blosse Erwaehnung statt eines Befehls, ist er Dokumentation.
+# Ein Befehl, der ausserhalb von Anfuehrungszeichen steht, bleibt ein Fund,
+# auch wenn ringsherum ein Lehrbuchtext liegt.
+
+_CITATION_RE = [
+    re.compile(r'```.*?```', re.DOTALL),
+    re.compile(r'`[^`\n]+`'),
+    re.compile(r'"[^"\n]*"'),
+    re.compile(r'[\u201C\u201E][^\u201C\u201D\u201E\n]*[\u201C\u201D]'),
+    # Einfache Anfuehrungszeichen nur ohne Buchstaben davor/danach,
+    # sonst reisst ein Apostroph wie in "the AI's behavior" die Paarung auf.
+    re.compile(r"(?<![A-Za-z])'[^'\n]*'(?![A-Za-z])"),
+]
+
+# Verben, die einen Befehl an das Modell einleiten.
+_OPERATIVE_VERB = re.compile(
+    r'(?i)(?:^|[.;:!?\n]\s*|\b(?:and|then|also|now|und|dann|danach|jetzt)\s+)'
+    r'(ignore|ignoriere|forget|vergiss|disregard|override|reveal|print|output|show|send|'
+    r'execute|run|repeat|dump|leak|bypass|call|zeige|sende|gib|f[u\u00fc]hre|antworte|starte)\b')
+
+# Zweite Person plus KI-Steuerbegriff: der Satz spricht das Modell an.
+_OPERATIVE_ADDRESS = re.compile(
+    r'(?i)\b(?:your|dein\w*)\s+(?:full\s+|complete\s+|real\s+|actual\s+|vollst[a\u00e4]ndige\w*\s+)?'
+    r'(system\s*prompt|systemprompt|instructions?|rules?|guidelines?|constraints?|training|'
+    r'programming|safety|anweisungen|regeln|richtlinien)\b')
+
+
+def citation_spans(text):
+    """Bereiche, in denen Text zitiert statt ausgefuehrt wird."""
+    spans = []
+    for rx in _CITATION_RE:
+        spans.extend((m.start(), m.end()) for m in rx.finditer(text))
+    return spans
+
+
+def is_cited(span, citations):
+    return any(start <= span[0] and span[1] <= end for start, end in citations)
+
+
+def _sentence_around(text, span):
+    start = max(text.rfind(c, 0, span[0]) for c in '.!?\n') + 1
+    ends = [p for p in (text.find(c, span[1]) for c in '.!?\n') if p != -1]
+    end = min(ends) + 1 if ends else len(text)
+    return text[start:end]
+
+
+def is_operative(text, span):
+    """Steht der Treffer als Befehl im Satz oder nur als Erwaehnung?"""
+    sentence = _sentence_around(text, span)
+    return bool(_OPERATIVE_VERB.search(sentence) or _OPERATIVE_ADDRESS.search(sentence))
+
+
+def damp(confidence: str) -> str:
+    """Kontext senkt die Confidence um eine Stufe, Untergrenze MEDIUM."""
+    return 'MEDIUM' if CONFIDENCE_ORDER.get(confidence, 2) >= 2 else confidence
+
+
+def is_actionable(finding) -> bool:
+    """Zaehlt der Fund fuer Score, Severity-Rollup und Detection?"""
+    return CONFIDENCE_ORDER.get(finding.confidence, 2) >= MIN_ACTIONABLE_CONFIDENCE
 
 
 # ============================================================
@@ -500,58 +585,77 @@ def check_unicode_injection(text):
 def scan_text(text):
     findings = []
     seen = set()
-    edu = is_educational_context(text)
-    defense = is_code_defense_context(text)
-    benign_doc = is_benign_documentation(text)
-    
+    context = context_signals(text)
+    citations = citation_spans(text) if context else []
+
     for group, patterns in PATTERNS.items():
         for pattern, cat, sev, is_direct in patterns:
-            ms = re.findall(pattern, text, re.DOTALL)
-            if ms:
-                key = f"{cat}:{pattern[:40]}"
-                if key in seen: continue
-                seen.add(key)
-                
-                adj_sev = sev
-                if (edu or defense or benign_doc) and sev in ('CRITICAL', 'HIGH'):
-                    adj_sev = 'INFO'
-                elif (edu or defense or benign_doc):
-                    adj_sev = 'INFO'
-                
-                mt = ms[0] if isinstance(ms[0], str) else str(ms[0])
-                findings.append(Finding(cat, adj_sev, 'HIGH' if is_direct else 'MEDIUM', mt[:60], f'{group}: {mt[:40]}', is_direct))
-    
+            spans = [(m.start(), m.end(), m.group(0))
+                     for m in re.finditer(pattern, text, re.DOTALL)]
+            if not spans: continue
+            key = f"{cat}:{pattern[:40]}"
+            if key in seen: continue
+            seen.add(key)
+
+            conf = 'HIGH' if is_direct else 'MEDIUM'
+            hit = spans[0]
+            if context:
+                # Ein Treffer ausserhalb von Zitaten, der als Befehl formuliert
+                # ist, traegt den Fund. Nur wenn kein einziger Treffer so
+                # dasteht, ist der Text Dokumentation und der Fund faellt auf
+                # LOW. Die Severity bleibt in beiden Faellen unangetastet.
+                operative = [s for s in spans
+                             if not is_cited(s, citations) and is_operative(text, s)]
+                if operative:
+                    conf = damp(conf)
+                    hit = operative[0]
+                else:
+                    conf = 'LOW'
+
+            mt = hit[2]
+            findings.append(Finding(cat, sev, conf, mt[:60], f'{group}: {mt[:40]}', is_direct))
+
     b64 = check_base64(text)
-    if b64 and not edu: findings.append(b64)
-    
-    if len(re.findall(r'(?i)(Example|Q)\s*\d+\s*:', text)) >= 6 and not edu:
-        findings.append(Finding('Kat. 19', 'HIGH', 'HIGH', 'Many examples', 'Many-shot priming'))
-    
+    if b64:
+        # Ein kodierter Payload ist auch im Lehrbuchtext ein kodierter Payload.
+        if context: b64.confidence = damp(b64.confidence)
+        findings.append(b64)
+
+    if len(re.findall(r'(?i)(Example|Q)\s*\d+\s*:', text)) >= 6:
+        findings.append(Finding('Kat. 19', 'HIGH', damp('HIGH') if context else 'HIGH',
+                                'Many examples', 'Many-shot priming'))
+
     # Unicode Injection Detection (Kat. 24a-24g) — replaces old ZW-only check
     unicode_findings = check_unicode_injection(text)
-    if edu or defense or benign_doc:
+    if context:
+        # Versteckter Klartext ist per Definition kein Zitat, deshalb hier nur
+        # die Confidence senken und nicht bis LOW durchreichen.
         for f in unicode_findings:
-            f.severity = 'INFO'
+            f.confidence = damp(f.confidence)
     findings.extend(unicode_findings)
-    
-    if not (edu or defense or benign_doc):
-        pcats = set(f.category for f in findings if f.is_primary and SEVERITY_ORDER.get(f.severity, 0) >= 2)
-        if len(pcats) >= 3:
-            findings.append(Finding('Kat. 23', 'CRITICAL', 'HIGH', f'Multi: {",".join(sorted(pcats))}', 'Multi-vector'))
-    
+
+    pcats = set(f.category for f in findings
+                if f.is_primary and is_actionable(f) and SEVERITY_ORDER.get(f.severity, 0) >= 2)
+    if len(pcats) >= 3:
+        findings.append(Finding('Kat. 23', 'CRITICAL', damp('HIGH') if context else 'HIGH',
+                                f'Multi: {",".join(sorted(pcats))}', 'Multi-vector'))
+
     return findings
 
 
 def get_highest(findings):
     if not findings: return 'NONE'
-    primary = [f for f in findings if f.is_primary] or findings
+    actionable = [f for f in findings if is_actionable(f)]
+    if not actionable: return 'INFO'
+    primary = [f for f in actionable if f.is_primary] or actionable
     return max(primary, key=lambda f: SEVERITY_ORDER.get(f.severity, 0)).severity
 
 def calc_score(findings):
     s = 100
     cats = {}
     for f in findings:
-        v = SEVERITY_ORDER.get(f.severity, 0)
+        # Funde mit gedaempfter Confidence zaehlen wie ein Hinweis, nicht wie ein Befund.
+        v = SEVERITY_ORDER.get(f.severity if is_actionable(f) else 'INFO', 0)
         if f.category not in cats or v > cats[f.category]: cats[f.category] = v
     sn = {v: k for k, v in SEVERITY_ORDER.items()}
     for c, v in cats.items(): s -= SEVERITY_SCORE.get(sn.get(v, 'INFO'), 0)
@@ -579,7 +683,8 @@ def run():
         findings = scan_text(text)
         highest = get_highest(findings)
         score = calc_score(findings)
-        meaningful = [f for f in findings if SEVERITY_ORDER.get(f.severity, 0) >= 2]
+        meaningful = [f for f in findings
+                      if is_actionable(f) and SEVERITY_ORDER.get(f.severity, 0) >= 2]
         detected = len(meaningful) > 0
         
         is_mal = ev['is_malicious']
