@@ -41,10 +41,13 @@ blockiert erst ab HIGH, `--fail-on LOW` blockiert zusaetzlich bei Funden, die
 der Kontext abgewertet hat. `--tools Bash,WebFetch` grenzt zusaetzlich ein, wenn
 der `matcher` in der settings.json weiter gefasst ist als gewollt.
 
-Der Hook liest hoechstens 200 Zeichenketten, 8 Verschachtelungsebenen und 200000
-Zeichen je Feld. Nimmt eine dieser Grenzen etwas aus der Pruefung, blockiert er
-und nennt die Stelle; `--on-limit warn` laesst den Aufruf stattdessen mit einem
-Hinweis auf stderr durch.
+Der Hook liest hoechstens 400 Zeichenketten (Schluessel und Werte), 8
+Verschachtelungsebenen und 2000000 Zeichen je Aufruf. Ein einzelnes langes Feld
+wird nicht abgeschnitten, sondern in ueberlappenden Fenstern vollstaendig
+gelesen: ein harmloser Write von 208000 Zeichen laeuft mit Exit 0 durch. Nimmt
+eine dieser Grenzen wirklich etwas aus der Pruefung, blockiert er und nennt die
+Stelle; `--on-limit warn` laesst den Aufruf stattdessen mit einem Hinweis auf
+stderr durch.
 
 Warum der Hook nicht die Exit-Codes von `pis-scan` durchreicht: Claude Code
 liest `0` als "durchlassen", `2` als "blockieren" und alles andere als

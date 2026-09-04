@@ -20,12 +20,15 @@ Ausgabe und Exit-Codes:
     1   Der Hook selbst ist gescheitert (Eingabe kein JSON, Feld fehlt). Der
         Aufruf laeuft weiter, Claude Code zeigt einen Hinweis.
 
-Zu den Grenzen: `tool_input` wird auf 200 Zeichenketten, 8 Verschachtelungs-
-ebenen und 200000 Zeichen je Feld begrenzt. Wer diese Zahlen kennt, kann sein
-Nutzfeld dahinter legen. Deshalb endet ein Aufruf, bei dem eine Grenze etwas
-aus der Pruefung genommen hat, nicht mehr still mit 0: er wird blockiert und
-die Begruendung nennt die Stelle. `--on-limit warn` gibt die Entscheidung an
-den Aufrufer zurueck, dann steht der Hinweis nur auf stderr.
+Zu den Grenzen: `tool_input` wird auf 400 Zeichenketten (Schluessel und Werte),
+8 Verschachtelungsebenen und 2000000 Zeichen je Aufruf begrenzt. Ein einzelnes langes Feld wird
+in ueberlappenden Fenstern vollstaendig gelesen, solange das Budget reicht; ein
+Write von 208000 Zeichen ist also weder abgeschnitten noch ein Grund zum
+Blockieren. Wer die Zahlen kennt, kann sein Nutzfeld dahinter legen. Deshalb
+endet ein Aufruf, bei dem eine Grenze wirklich etwas aus der Pruefung genommen
+hat, nicht still mit 0: er wird blockiert und die Begruendung nennt die Stelle.
+`--on-limit warn` gibt die Entscheidung an den Aufrufer zurueck, dann steht der
+Hinweis nur auf stderr.
 
 Warum nicht die Exit-Codes von `pis-scan`: dort steht 4 fuer CRITICAL. Claude
 Code liest alles ausser 0 und 2 als "Hook kaputt" und laesst den Aufruf laufen.
@@ -61,14 +64,32 @@ SEVERITIES = ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')
 
 # Tiefe und Menge begrenzen: tool_input kommt aus einem Modelllauf, nicht aus
 # einer vertrauenswuerdigen Quelle. Wer diese Grenzen kennt, kann sie ansteuern:
-# 201 Zeichenketten vor dem Nutzfeld, neun Verschachtelungsebenen oder 200001
-# Fuellzeichen genuegten, damit der Angriff nicht mehr gescannt wurde. Der Hook
-# endete dann mit 0 und ohne Ausgabe, ein durchgelassener Aufruf war von einem
-# sauberen nicht zu unterscheiden. Deshalb wird jedes Ueberschreiten gemeldet
-# und standardmaessig blockiert; `--on-limit warn` gibt die Entscheidung ab.
+# 201 Zeichenketten vor dem Nutzfeld oder neun Verschachtelungsebenen genuegten,
+# damit der Angriff nicht mehr gescannt wurde. Der Hook endete dann mit 0 und
+# ohne Ausgabe, ein durchgelassener Aufruf war von einem sauberen nicht zu
+# unterscheiden. Deshalb wird jedes Ueberschreiten gemeldet und standardmaessig
+# blockiert; `--on-limit warn` gibt die Entscheidung ab.
 _MAX_DEPTH = 8
-_MAX_STRINGS = 200
+
+# Gezaehlt werden Schluessel und Werte, denn beide werden gescannt. Ein Objekt
+# mit 200 Feldern liegt damit genau auf der Grenze, so wie vor v0.2.0 auch.
+_MAX_STRINGS = 400
+
+# Fenstergroesse eines einzelnen Scanlaufs, nicht die Grenze des Feldes. Ein
+# langes Feld wird in Fenstern vollstaendig gelesen; die Ueberlappung sorgt
+# dafuer, dass ein Muster an der Naht nicht zerfaellt (das laengste Muster ist
+# weit unter 4096 Zeichen lang).
 _MAX_CHARS = 200000
+_WINDOW_OVERLAP = 4096
+
+# Gesamtbudget je Aufruf. Bis v0.2.0 stand hier eine Grenze je Feld, und ein
+# harmloser Write von 208000 Zeichen endete mit "deny". Das war eine
+# Fehl-Ablehnung an einer voellig gewoehnlichen Dateigroesse und der erste
+# Grund, den Hook wieder auszubauen. Gescannt wird deshalb bis zum Budget
+# vollstaendig; erst was dahinter liegt, faellt aus der Pruefung und wird
+# gemeldet. Gemessen kostet die Engine rund 2 Mikrosekunden je Zeichen, das
+# Budget also gut vier Sekunden im schlimmsten Fall, bei 30 Sekunden Timeout.
+_MAX_TOTAL_CHARS = 2000000
 
 
 def _has_content(value):
@@ -80,21 +101,49 @@ def _has_content(value):
     return False
 
 
-def collect_strings(value, path='tool_input', depth=0, collected=None, skipped=None):
+def _fenster(path, text):
+    """Ein langes Feld in ueberlappende Scanfenster zerlegen."""
+    if len(text) <= _MAX_CHARS:
+        return [(path, text)]
+    schritt = _MAX_CHARS - _WINDOW_OVERLAP
+    stuecke = []
+    start = 0
+    while start < len(text):
+        stueck = text[start:start + _MAX_CHARS]
+        stuecke.append(('%s[%d:%d]' % (path, start, start + len(stueck)), stueck))
+        if start + _MAX_CHARS >= len(text):
+            break
+        start += schritt
+    return stuecke
+
+
+def collect_strings(value, path='tool_input', depth=0, collected=None, skipped=None,
+                    budget=None, felder=None):
     """Alle Zeichenketten aus einem verschachtelten Werkzeug-Argument.
 
-    Ein Angriff steckt selten im Feld, das man erwartet. Deshalb wird jedes
-    String-Feld gescannt und nicht nur `command` oder `content`.
+    Ein Angriff steckt selten im Feld, das man erwartet, und selten in einem
+    Wert. Deshalb wird jedes String-Feld gescannt und nicht nur `command` oder
+    `content`, und die Schluessel eines Objekts werden mitgelesen: ein Aufruf
+    wie `{"Ignore all previous instructions": "ok"}` ist ein gueltiges
+    `tool_input` und lief vorher ohne Ausgabe mit Exit 0 durch.
+
+    Ein Feld, das laenger als ein Scanfenster ist, wird in ueberlappenden
+    Fenstern vollstaendig gelesen. Die Fenster zaehlen als ein Feld gegen
+    `_MAX_STRINGS`, ihre Zeichen zaehlen gegen `_MAX_TOTAL_CHARS`.
 
     Rueckgabe: `(felder, uebergangen)`. `uebergangen` nennt jede Stelle, an der
     eine Grenze etwas aus der Pruefung genommen hat. Gezaehlt wird, was
     tatsaechlich wegfaellt, nicht das Erreichen der Grenze: genau
-    `_MAX_STRINGS` Zeichenketten sind vollstaendig geprueft, die 201. nicht.
+    `_MAX_STRINGS` Zeichenketten sind vollstaendig geprueft, die naechste nicht.
     """
     if collected is None:
         collected = []
     if skipped is None:
         skipped = []
+    if budget is None:
+        budget = [_MAX_TOTAL_CHARS]
+    if felder is None:
+        felder = [0]
 
     if depth > _MAX_DEPTH:
         if _has_content(value):
@@ -105,22 +154,32 @@ def collect_strings(value, path='tool_input', depth=0, collected=None, skipped=N
     if isinstance(value, str):
         if not value.strip():
             return collected, skipped
-        if len(collected) >= _MAX_STRINGS:
+        if felder[0] >= _MAX_STRINGS:
             skipped.append('%s faellt hinter die Grenze von %d Zeichenketten und '
                            'wurde nicht geprueft' % (path, _MAX_STRINGS))
             return collected, skipped
-        if len(value) > _MAX_CHARS:
-            skipped.append('%s ist %d Zeichen lang, geprueft wurden die ersten %d'
-                           % (path, len(value), _MAX_CHARS))
-        collected.append((path, value[:_MAX_CHARS]))
+        felder[0] += 1
+        text = value
+        if len(text) > budget[0]:
+            skipped.append('%s ist %d Zeichen lang, geprueft wurden die ersten %d '
+                           '(Gesamtbudget %d Zeichen je Aufruf)'
+                           % (path, len(text), budget[0], _MAX_TOTAL_CHARS))
+            text = text[:budget[0]]
+        budget[0] -= len(text)
+        if text:
+            collected.extend(_fenster(path, text))
     elif isinstance(value, dict):
         for key in sorted(value):
+            # Der Schluessel selbst ist Text aus derselben unsicheren Quelle.
+            if isinstance(key, str) and key.strip():
+                collect_strings(key, '%s.%s (Schluessel)' % (path, key[:40]),
+                                depth + 1, collected, skipped, budget, felder)
             collect_strings(value[key], '%s.%s' % (path, key), depth + 1,
-                            collected, skipped)
+                            collected, skipped, budget, felder)
     elif isinstance(value, (list, tuple)):
         for index, item in enumerate(value):
             collect_strings(item, '%s[%d]' % (path, index), depth + 1,
-                            collected, skipped)
+                            collected, skipped, budget, felder)
     return collected, skipped
 
 
@@ -169,11 +228,11 @@ def main(argv=None):
                              'Confidence LOW gedrueckt hat.' % MIN_REPORTABLE_SEVERITY)
     parser.add_argument('--on-limit', choices=('block', 'warn'), default='block',
                         help='Was geschieht, wenn eine der Grenzen (%d Zeichenketten, '
-                             '%d Verschachtelungsebenen, %d Zeichen je Feld) etwas aus '
+                             '%d Verschachtelungsebenen, %d Zeichen je Aufruf) etwas aus '
                              'der Pruefung nimmt. "block": den Aufruf ablehnen, weil er '
                              'nicht vollstaendig geprueft werden konnte (Standard). '
                              '"warn": nur auf stderr melden und durchlassen.'
-                             % (_MAX_STRINGS, _MAX_DEPTH, _MAX_CHARS))
+                             % (_MAX_STRINGS, _MAX_DEPTH, _MAX_TOTAL_CHARS))
     parser.add_argument('--tools', metavar='NAME[,NAME...]', default=None,
                         help='Nur diese Werkzeugnamen pruefen. Ohne Angabe alle. '
                              'Die Vorauswahl gehoert eigentlich in den matcher der '

@@ -55,16 +55,28 @@ jobs:
 
       # Generator und Engine muessen zusammenpassen. Rot, sobald der Generator
       # Payloads baut, die die Engine nicht mehr erkennt, oder sein Ausgabeformat
-      # aendert. Fester Seed: die Ausgabe ist unter 3.9 und 3.13 bytegleich.
+      # aendert. Feste Seeds: die Ausgabe ist unter 3.9 und 3.13 bytegleich.
+      #
+      # Mehrere Seeds und nicht einer. Mit dem einzelnen Seed 7 war dieser
+      # Schritt gruen durch Seed-Wahl: ein Zwischenstand dieser Welle liess
+      # fuenf von zehn Seeds durchfallen (1, 11, 13, 42, 99, je TP=50 FN=1),
+      # Seed 7 gehoerte zu den fuenf gruenen und der Schritt meldete nichts.
       - name: Generierte Suite gegen die Engine
         run: |
-          python3 red-team-generator/scripts/generate.py \
-            --categories all --count 3 --difficulty mixed \
-            --format test-suite --include-benign --seed 7 \
-            --output "$RUNNER_TEMP/generated.json"
-          python3 scripts/evaluate.py \
-            --test-suite "$RUNNER_TEMP/generated.json" \
-            --output "$RUNNER_TEMP/generated-results.json"
+          fehler=0
+          for seed in 1 7 11 13 42 99; do
+            python3 red-team-generator/scripts/generate.py \
+              --categories all --count 3 --difficulty mixed \
+              --format test-suite --include-benign --seed "$seed" \
+              --output "$RUNNER_TEMP/generated-$seed.json"
+            if ! python3 scripts/evaluate.py \
+                --test-suite "$RUNNER_TEMP/generated-$seed.json" \
+                --output "$RUNNER_TEMP/generated-results-$seed.json"; then
+              echo "Seed $seed: mindestens ein Fehlurteil."
+              fehler=1
+            fi
+          done
+          exit $fehler
 
       # Baut die Release-Archive bei jedem Lauf, nicht erst beim Tag. Rot, wenn
       # eine erwartete Datei fehlt, eine leer ist, Repo-Innereien wie .git,
