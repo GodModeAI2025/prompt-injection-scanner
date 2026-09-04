@@ -493,7 +493,7 @@ footer {
     <div class="badge"><span class="badge-dot"></span>F1-Score: 100% auf der eigenen Suite (66 Tests)</div>
     <h1><em>Prompt Injection</em><br>Scanner</h1>
     <p class="hero-sub">
-      Security-Skill fuer agentische KI-Systeme. Erkennt versteckte Anweisungen, Jailbreak-Versuche und Social Engineering in Dokumenten, Skills und System Prompts &mdash; bevor sie Schaden anrichten.
+      Erkennt versteckte Anweisungen, Jailbreak-Versuche und Social Engineering in Dokumenten, Skills und System Prompts, bevor sie Schaden anrichten. Als Claude-Skill, als Bibliothek mit CLI, als Hook vor dem Werkzeugaufruf und als GitHub Action. Vier Wege, eine Musterliste.
     </p>
     <div class="hero-stats">
       <div><div class="stat-val">25/28</div><div class="stat-label">Kategorien mit Erkennungsmuster</div></div>
@@ -712,7 +712,41 @@ footer {
       <div class="flow-step">
         <div class="flow-num">04</div>
         <h3>Report</h3>
-        <p>Score (0&ndash;100), Ampel, Funde mit Severity/Kategorie/Erklaerung, priorisierte Haertungsempfehlungen.</p>
+        <p>Score (0&ndash;100), Ampel, Funde mit Severity/Kategorie/Erklaerung, priorisierte Haertungsempfehlungen. Als Text, als JSON oder als SARIF fuer GitHub Code Scanning.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== INTEGRATION ==================== -->
+<section class="sect">
+  <div class="wrap">
+    <div class="sect-label">Einbau</div>
+    <h2 class="reveal">Vier Wege, eine Musterliste</h2>
+    <p class="sect-desc reveal">
+      Der Skill ist die Bedienoberflaeche, die Bibliothek ist die Wahrheit. Beide lesen dieselben Muster aus prompt_injection_scanner/engine.py, auch die Schwelle, ab der ein Fund zaehlt. Weicht ein Weg vom anderen ab, ist das ein Fehler und kein Spielraum.
+    </p>
+
+    <div class="flow reveal">
+      <div class="flow-step">
+        <div class="flow-num">01</div>
+        <h3>Als Skill</h3>
+        <p>Archiv nach ~/.claude/skills/ entpacken, im Chat nach einer Pruefung fragen. Das Modell fuehrt den Workflow aus SKILL.md aus.</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">02</div>
+        <h3>Als CLI</h3>
+        <p>pip install . aus dem Repo, dann pis-scan. Der Exit-Code nennt die hoechste Severity: 0 sauber, 3 HIGH, 4 CRITICAL. Kein PyPI-Upload, nur Standardbibliothek, ab Python 3.9.</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">03</div>
+        <h3>Als PreToolUse-Hook</h3>
+        <p>pis-hook-pretooluse liest den geplanten Werkzeugaufruf, scannt jedes Textfeld darin und blockiert, bevor das Werkzeug laeuft. Fertiger settings.json-Eintrag liegt im Repo.</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">04</div>
+        <h3>Als GitHub Action</h3>
+        <p>Composite-Action mit SARIF-Ausgabe fuer Code Scanning. Der Upload bleibt beim Aufrufer: security-events: write soll eine fremde Action nicht stillschweigend voraussetzen.</p>
       </div>
     </div>
   </div>
@@ -724,7 +758,7 @@ footer {
     <div class="sect-label">Erkennung</div>
     <h2 class="reveal">28 Kategorien in 3 Schichten</h2>
     <p class="sect-desc reveal">
-      Von offensichtlichen Overrides bis zu unsichtbaren Unicode-Injections und mehrstufigem Social Engineering. scripts/evaluate.py setzt 25 der 28 Kategorien um, fuer Kat. 10, 26 und 27 gibt es dort kein Muster.
+      Von offensichtlichen Overrides bis zu unsichtbaren Unicode-Injections und mehrstufigem Social Engineering. prompt_injection_scanner/engine.py setzt 25 der 28 Kategorien um, fuer Kat. 10, 26 und 27 gibt es dort kein Muster.
     </p>
 
     <div class="cat-grid reveal">
@@ -852,7 +886,7 @@ footer {
     <div class="sect-label">Aufbau</div>
     <h2 class="reveal">Was in den Archiven steckt</h2>
     <p class="sect-desc reveal">
-      Ein Release haengt zwei Archive an. Scanner und Red-Team-Generator sind zwei Skills mit je eigener SKILL.md: als Unterordner im selben Paket wuerde die zweite nie geladen. Jedes Archiv entpackt in einen Ordner, der direkt in das Skills-Verzeichnis passt. Gebaut werden beide vom Skript scripts/package.py, das laeuft ohne Netz und liefert bei zwei Laeufen dieselben Bytes. Nicht enthalten: .git, .github und diese Seite. Die Dateien liegen unter <a href="https://github.com/GodModeAI2025/prompt-injection-scanner/releases">Releases</a>.
+      Ein Release haengt zwei Archive an. Scanner und Red-Team-Generator sind zwei Skills mit je eigener SKILL.md: als Unterordner im selben Paket wuerde die zweite nie geladen. Jedes Archiv entpackt in einen Ordner, der direkt in das Skills-Verzeichnis passt. Das Scanner-Archiv traegt zusaetzlich die Bibliothek: derselbe Ordner ist Skill und Paketquelle, ein "pip install ." darin legt die Befehle pis-scan und pis-hook-pretooluse an. Gebaut werden beide vom Skript scripts/package.py, das laeuft ohne Netz und liefert bei zwei Laeufen dieselben Bytes. Nicht enthalten: .git, .github und diese Seite. Die Dateien liegen unter <a href="https://github.com/GodModeAI2025/prompt-injection-scanner/releases">Releases</a>.
     </p>
 
     <div class="tree reveal" style="margin-bottom:20px;">
@@ -861,10 +895,17 @@ footer {
       &#x251C;&#x2500;&#x2500; <span class="f">references/</span><br>
       &#x2502;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="d">detection-patterns.md</span> <span class="c">&mdash; 28 Kat., 3 Schichten, Kat. 24 mit 7 Sub-Kategorien</span><br>
       &#x2502;&nbsp;&nbsp; &#x2514;&#x2500;&#x2500; <span class="d">hardening-templates.md</span> <span class="c">&mdash; Copy-Paste-Vorlagen zum Haerten</span><br>
+      &#x251C;&#x2500;&#x2500; <span class="f">prompt_injection_scanner/</span><br>
+      &#x2502;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="d">engine.py</span> <span class="c">&mdash; Muster, Kontext-Bewertung, Severity, Score</span><br>
+      &#x2502;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="d">cli.py</span> <span class="c">&mdash; pis-scan, Exit-Code nach Severity</span><br>
+      &#x2502;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="d">sarif.py</span> <span class="c">&mdash; SARIF 2.1.0 fuer GitHub Code Scanning</span><br>
+      &#x2502;&nbsp;&nbsp; &#x2514;&#x2500;&#x2500; <span class="d">hooks/pretooluse.py</span> <span class="c">&mdash; blockt vor dem Werkzeugaufruf</span><br>
       &#x251C;&#x2500;&#x2500; <span class="f">scripts/</span><br>
-      &#x2502;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="d">evaluate.py</span> <span class="c">&mdash; Automatisierter Pattern-Tester mit Unicode-Detection</span><br>
+      &#x2502;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="d">evaluate.py</span> <span class="c">&mdash; Messschleife um die Engine, Exit-Code nach Fehlurteilen</span><br>
       &#x2502;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="d">test_context_regression.py</span> <span class="c">&mdash; Regressionstests der Kontext-Bewertung</span><br>
+      &#x2502;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="d">test_cli_hook.py</span> <span class="c">&mdash; Tests fuer CLI, Hook und SARIF-Ausgabe</span><br>
       &#x2502;&nbsp;&nbsp; &#x2514;&#x2500;&#x2500; <span class="d">test-suite.json</span> <span class="c">&mdash; 66 Tests (50 boesartig, 16 gutartig)</span><br>
+      &#x251C;&#x2500;&#x2500; <span class="d">pyproject.toml</span> <span class="c">&mdash; macht den entpackten Ordner zur Paketquelle</span><br>
       &#x251C;&#x2500;&#x2500; <span class="d">LICENSE</span><br>
       &#x2514;&#x2500;&#x2500; <span class="d">VERSION</span> <span class="c">&mdash; Nummer des Releases, Quelle ist VERSION im Repo</span>
     </div>
