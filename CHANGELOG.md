@@ -39,7 +39,7 @@ nicht dazu, installiert wird aus dem Repo oder aus dem entpackten Release-Archiv
   `security-events: write` eine Berechtigung ist, die eine fremde Action nicht stillschweigend
   voraussetzen sollte. Regeln tragen `properties.security-severity`, sonst stuft GitHub jeden Fund
   gleich ein.
-- **`scripts/test_cli_hook.py`**, 30 Fälle für Exit-Codes, Hook-Entscheidungen, SARIF-Aufbau und den
+- **`scripts/test_cli_hook.py`**, 31 Fälle für Exit-Codes, Hook-Entscheidungen, SARIF-Aufbau und den
   Lauf des Action-Skripts.
 
 ### Behoben
@@ -77,6 +77,12 @@ nicht dazu, installiert wird aus dem Repo oder aus dem entpackten Release-Archiv
   Prüfung genommen hat, wird jetzt blockiert, und die Begründung nennt die Stelle. Neu dafür
   `--on-limit {block,warn}`, Vorgabe `block`. Gezählt wird, was wegfällt: genau 200 Zeichenketten,
   acht Ebenen und 200000 Zeichen bleiben still.
+- **Die Action zählte weiter ab MEDIUM.** `run_action.py` und `action/action.yml` trugen `'MEDIUM'`
+  als eigenen Literalwert. Mit `MIN_REPORTABLE_SEVERITY` auf `HIGH` folgten CLI und Hook (gemessen:
+  `pis-scan` sauber, Exit 0, Hook Exit 0), die Action meldete denselben MEDIUM-Fund weiter und machte
+  den Schritt rot. Genau der Driftpunkt, den `MIN_REPORTABLE_SEVERITY` beseitigen sollte, im vierten
+  Aufrufer. `run_action.py` importiert die Schwelle jetzt aus der Engine, `action.yml` hat keinen
+  Vorgabewert mehr.
 - **Die Detection-Schwelle stand in der Auswertungsschleife.** Ab wann ein Fund als Erkennung zählt,
   war eine Zeile in `run()` von `scripts/evaluate.py`. Jeder weitere Aufrufer hätte sich eine eigene
   gebaut. Sie steht als `MIN_REPORTABLE_SEVERITY` in der Engine, dazu `meaningful_findings()`,

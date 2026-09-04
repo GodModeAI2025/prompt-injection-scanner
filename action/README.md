@@ -46,10 +46,15 @@ erscheint nur in der Code-Scanning-Ansicht.
 |---|---|---|
 | `paths` | `.` | Dateien oder Verzeichnisse, durch Leerzeichen getrennt |
 | `include` | `md,txt,json,yml,yaml` | Endungen, die in einem Verzeichnis geprueft werden |
-| `fail-on` | `MEDIUM` | Ab welcher Severity ein Fund zaehlt |
+| `fail-on` | leer, dann `MIN_REPORTABLE_SEVERITY` aus der Engine (zurzeit `MEDIUM`) | Ab welcher Severity ein Fund zaehlt |
 | `sarif-file` | `prompt-injection.sarif` | Zieldatei des Berichts |
 | `fail-build` | `true` | Ob ein Fund den Schritt rot macht |
 | `python-version` | `3.13` | Python fuer die Installation |
+
+Die Vorgabe fuer `fail-on` steht bewusst nicht in der `action.yml`. Ein Literal
+dort waere eine zweite Schwelle neben der Engine, und CLI, Hook und Evaluator
+wuerden ihr irgendwann nicht mehr folgen. Wer die Schwelle setzt, setzt sie
+bewusst; wer sie weglaesst, bekommt dieselbe wie ueberall sonst.
 
 ## Ausgaben
 

@@ -10,6 +10,10 @@ soll sich lokal aufrufen und testen lassen, ohne einen Workflow zu starten.
 
     PIS_PATHS=. PIS_SARIF=/tmp/pis.sarif python3 action/run_action.py
 
+Die Schwelle liest die Action aus `MIN_REPORTABLE_SEVERITY` der Engine, genau
+wie CLI, Hook und Evaluator. `PIS_FAIL_ON` ueberschreibt sie; ein leerer Wert
+gilt als nicht gesetzt.
+
 Exit-Codes: 0 kein Fund oder fail-build=false, 1 Fund ab der Schwelle,
 2 falscher Aufruf.
 """
@@ -19,7 +23,11 @@ import sys
 
 try:
     from prompt_injection_scanner import __version__, scan
-    from prompt_injection_scanner.engine import SEVERITY_ORDER, meaningful_findings
+    from prompt_injection_scanner.engine import (
+        MIN_REPORTABLE_SEVERITY,
+        SEVERITY_ORDER,
+        meaningful_findings,
+    )
     from prompt_injection_scanner.sarif import dumps
 except ImportError:
     sys.stderr.write(
@@ -80,7 +88,12 @@ def summary(text):
 def main():
     paths = os.environ.get('PIS_PATHS', '.').split()
     include = os.environ.get('PIS_INCLUDE', 'md,txt,json,yml,yaml')
-    fail_on = os.environ.get('PIS_FAIL_ON', 'MEDIUM').upper()
+    # Die Vorgabe kommt aus der Engine und steht hier nicht als eigener Wert.
+    # Ein Literal an dieser Stelle war genau der Driftpunkt, den
+    # MIN_REPORTABLE_SEVERITY beseitigen soll: CLI und Hook folgten der Engine,
+    # die Action zaehlte weiter ab MEDIUM. `or` statt eines Vorgabewerts, weil
+    # ein nicht gesetztes Action-Input als leerer String ankommt.
+    fail_on = (os.environ.get('PIS_FAIL_ON') or MIN_REPORTABLE_SEVERITY).upper()
     sarif_path = os.environ.get('PIS_SARIF', 'prompt-injection.sarif')
     fail_build = os.environ.get('PIS_FAIL_BUILD', 'true').lower() != 'false'
 

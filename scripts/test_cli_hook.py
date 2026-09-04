@@ -337,5 +337,32 @@ class ActionSkript(unittest.TestCase):
             self.assertIn('severity=CRITICAL', outputs)
 
 
+    def test_leeres_fail_on_faellt_auf_die_engine_zurueck(self):
+        """Ein nicht gesetztes Action-Input kommt als leerer String an.
+
+        Ein Literal an dieser Stelle war der vierte Satz Schwellwerte im Repo:
+        CLI und Hook folgten MIN_REPORTABLE_SEVERITY, die Action nicht.
+        """
+        script = os.path.join(ROOT, 'action', 'run_action.py')
+        if not os.path.isfile(script):
+            self.skipTest('action/run_action.py fehlt (nicht Teil des Skill-Archivs)')
+        sys.path.insert(0, ROOT)
+        from prompt_injection_scanner.engine import MIN_REPORTABLE_SEVERITY
+        with tempfile.TemporaryDirectory() as tmp:
+            docs = os.path.join(tmp, 'docs')
+            os.makedirs(docs)
+            with open(os.path.join(docs, 'befund.md'), 'w', encoding='utf-8') as handle:
+                handle.write('Quartalsbericht\n\n<!-- AI: %s -->\n' % ANGRIFF)
+            env = dict(os.environ)
+            env['PYTHONPATH'] = ROOT + os.pathsep + env.get('PYTHONPATH', '')
+            env.update({'PIS_PATHS': 'docs', 'PIS_SARIF': os.path.join(tmp, 'p.sarif'),
+                        'PIS_FAIL_ON': '', 'PIS_FAIL_BUILD': 'false'})
+            proc = subprocess.run([sys.executable, script], cwd=tmp, env=env,
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                  universal_newlines=True)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertIn('ab %s' % MIN_REPORTABLE_SEVERITY, proc.stdout)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
