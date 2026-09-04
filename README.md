@@ -188,13 +188,20 @@ Der Skill wurde in 6 Iterationen entwickelt und getestet:
 **Red-Team-Generator-Validierung**: 2040 dynamisch generierte Tests (30 Seeds × 68 Tests) — 100% Pass-Rate, 0 False Positives.
 
 ```bash
-# Evaluator selbst ausführen:
-cd prompt-injection-scanner/scripts
-python evaluate.py
+# Evaluator gegen die mitgelieferte Suite laufen lassen (aus dem Repo-Wurzelverzeichnis):
+python3 scripts/evaluate.py
+
+# Gegen eine eigene Suite:
+python3 scripts/evaluate.py --test-suite scripts/extended-tests.json
+
+# Regressionstests der Kontext-Bewertung:
+python3 scripts/test_context_regression.py
 
 # Red-Team-Generator: Eigene Testfälle generieren
-python red-team-generator/scripts/generate.py --categories all --count 3 --difficulty mixed --format test-suite --include-benign --output new-tests.json
+python3 red-team-generator/scripts/generate.py --categories all --count 3 --difficulty mixed --format test-suite --include-benign --output scripts/extended-tests.json
 ```
+
+Exit-Codes von `evaluate.py`: `0` alle Fälle wie erwartet, `1` mindestens ein Fehlurteil, `2` falscher Aufruf (unbekanntes Argument, fehlende Suite-Datei). Damit lässt sich der Lauf in CI verwenden, ohne dass ein Tippfehler im Aufruf als Erfolg durchgeht.
 
 ## Projektstruktur
 
@@ -206,6 +213,7 @@ prompt-injection-scanner/
 │   └── hardening-templates.md            # Härtungs-Textvorschläge zum Copy-Paste
 ├── scripts/
 │   ├── evaluate.py                       # Automatisierter Pattern-Tester mit Unicode-Detection
+│   ├── test_context_regression.py        # Regressionstests der Kontext-Bewertung
 │   └── test-suite.json                   # 66 Test Cases
 └── red-team-generator/                   # NEU
     ├── SKILL.md                          # Dokumentation und Nutzung

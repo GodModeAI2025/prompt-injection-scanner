@@ -11,7 +11,7 @@ Fixes from v3:
 - FN#50: Sandwich attacks (benign-malicious-benign pattern)
 """
 
-import re, json, base64
+import argparse, base64, json, os, re, sys
 from dataclasses import dataclass, field, asdict
 from typing import List, Optional
 
@@ -662,9 +662,8 @@ def calc_score(findings):
     return max(0, s)
 
 
-def run():
-    import os
-    suite_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test-suite.json')
+def run(suite_path, output_path):
+    """Misst die Engine gegen eine Suite. Rueckgabe: Zahl der Fehlurteile (FP+FN)."""
     with open(suite_path) as f:
         evals = json.load(f)
     
@@ -738,10 +737,43 @@ def run():
     exact = sum(1 for r in results if r['highest_severity'] == r['expected_severity'] or (r['expected_severity'] in ('NONE','INFO') and r['highest_severity'] in ('NONE','INFO')))
     print(f"\nExact Severity Match: {exact}/{total} ({round(exact/total*100,1)}%)")
     
-    output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'eval-results.json')
     with open(output_path, 'w') as f:
         json.dump({'summary': {'tp':tp,'tn':tn,'fp':fp,'fn':fn,'precision':prec,'recall':rec,'f1':f1}, 'results': results, 'missed': missed}, f, indent=2)
     print(f"\nResults saved to {output_path}")
 
+    return fp + fn
+
+
+def main(argv=None):
+    here = os.path.dirname(os.path.abspath(__file__))
+    parser = argparse.ArgumentParser(
+        prog='evaluate.py',
+        description='Prueft die Pattern-Engine gegen eine Test-Suite. '
+                    'Exit-Code 0, wenn jeder Fall wie erwartet bewertet wird, '
+                    'sonst 1. Unbekannte Argumente sind ein Fehler (Exit-Code 2).')
+    parser.add_argument('--test-suite', default=os.path.join(here, 'test-suite.json'),
+                        metavar='DATEI',
+                        help='Test-Suite im Format {"evals": [...]}. '
+                             'Standard: scripts/test-suite.json')
+    parser.add_argument('--output', default=os.path.join(here, 'eval-results.json'),
+                        metavar='DATEI',
+                        help='Zieldatei fuer den Ergebnisbericht. '
+                             'Standard: scripts/eval-results.json')
+    args = parser.parse_args(argv)
+
+    try:
+        failures = run(args.test_suite, args.output)
+    except FileNotFoundError as exc:
+        parser.error(f'Datei nicht gefunden: {exc.filename}')
+    except (ValueError, KeyError, TypeError) as exc:
+        parser.error(f'Test-Suite nicht verwertbar ({args.test_suite}): {exc}')
+
+    if failures:
+        print(f"\nFEHLGESCHLAGEN: {failures} Fall/Faelle falsch bewertet.")
+        return 1
+    print("\nBESTANDEN: alle Faelle wie erwartet bewertet.")
+    return 0
+
+
 if __name__ == '__main__':
-    run()
+    sys.exit(main())
