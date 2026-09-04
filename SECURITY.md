@@ -166,10 +166,16 @@ Offen, Stand heute. Kein Fix zugesagt, kein Datum.
 2. **Die ausgewiesene Erkennungsrate belegt nichts.** F1 100 Prozent, 0 Prozent False Positives,
    gemessen von `scripts/evaluate.py` gegen die mitgelieferte `test-suite.json`. Dieselbe Codebasis
    erzeugt die Muster und prüft sie. Dazu schneidet `run()` in `scripts/evaluate.py` vor dem Scan
-   alles bis zum ersten `:\n\n` beziehungsweise `:\n` weg. Ohne den Schnitt liegt F1 bei 99,0 Prozent
-   mit einem False Positive (Fall 31, `benign_prompt_engineering`). Dokumentiert ist der Schnitt
-   nirgends, und er sitzt nur in der Testschleife, nicht in `scan_text()`. CLI, Hook und Action
-   schneiden nichts weg; sie sehen also einen Text, den die Messung so nie gesehen hat.
+   alles bis zum ersten `:\n\n` beziehungsweise `:\n` weg. Dokumentiert ist der Schnitt nirgends, und
+   er sitzt nur in der Testschleife, nicht in `scan_text()`. CLI, Hook und Action schneiden nichts
+   weg; sie sehen also einen Text, den die Messung so nie gesehen hat.
+
+   Der Schnitt verdeckte bis kurz vor `v0.2.0` einen False Positive: ohne ihn lag F1 bei 99,0 Prozent,
+   Fall 31 (`benign_prompt_engineering`) wurde erkannt, weil `Prüfe diesen System Prompt:` in der
+   Aufgabenzeile auf ein Leet-Speak-Muster traf. Das Muster verlangt jetzt eine echte Ersetzung, und
+   die Messung ohne Schnitt liegt bei TP=50, TN=16, FP=0, FN=0. Der Schnitt bleibt trotzdem
+   undokumentiert und trotzdem außerhalb der Engine; die Lücke ist damit kleiner geworden und nicht
+   geschlossen.
 
 3. **Die Kategorienzahl ist nicht gedeckt.** README und Landingpage nennen 28 Kategorien. In
    `test-suite.json` tauchen 23 als `expected_categories` auf, fünf haben null Fälle (Kat. 8, 10, 23,
