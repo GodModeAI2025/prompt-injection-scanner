@@ -1,0 +1,18 @@
+{
+  "_hinweis": "Beispiel fuer .claude/settings.json oder ~/.claude/settings.json. Voraussetzung: pip install prompt-injection-scanner (oder pip install . aus dem Repo), sodass pis-hook-pretooluse im PATH liegt. Der matcher waehlt die Werkzeuge aus, die fremden Text hereinlassen: Bash und Write tragen Text weiter, WebFetch und Task holen ihn herein. Der Hook blockiert mit Exit-Code 2 und nennt Kategorie, Severity und Fundstelle.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "WebFetch|Task|Bash|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pis-hook-pretooluse",
+            "timeout": 30,
+            "statusMessage": "Pruefe den Werkzeugaufruf auf Prompt Injection"
+          }
+        ]
+      }
+    ]
+  }
+}

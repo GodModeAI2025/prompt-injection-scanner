@@ -1,0 +1,76 @@
+name: 'Prompt Injection Scanner'
+description: 'Scannt Dateien auf Prompt Injection und schreibt einen SARIF-Bericht fuer GitHub Code Scanning.'
+author: 'Mark Zimmermann'
+
+branding:
+  icon: 'shield'
+  color: 'red'
+
+# Die Action installiert das Paket aus diesem Repo und ruft pis-scan auf. Sie
+# bringt keine eigene Erkennung mit: was hier gemeldet wird, meldet auch die
+# lokale CLI und der Evaluator, mit denselben Mustern und derselben Schwelle.
+#
+# Das Hochladen des SARIF-Berichts bleibt beim Aufrufer. Dafuer braucht ein
+# Workflow "security-events: write", und diese Berechtigung soll eine Action
+# nicht stillschweigend voraussetzen.
+
+inputs:
+  paths:
+    description: 'Zu pruefende Dateien oder Verzeichnisse, durch Leerzeichen getrennt.'
+    required: false
+    default: '.'
+  include:
+    description: 'Dateiendungen, die in einem Verzeichnis geprueft werden, durch Komma getrennt.'
+    required: false
+    default: 'md,txt,json,yml,yaml'
+  fail-on:
+    description: 'Ab welcher Severity ein Fund zaehlt: LOW, MEDIUM, HIGH oder CRITICAL.'
+    required: false
+    default: 'MEDIUM'
+  sarif-file:
+    description: 'Zieldatei fuer den SARIF-Bericht.'
+    required: false
+    default: 'prompt-injection.sarif'
+  fail-build:
+    description: 'Bei einem Fund den Schritt rot machen. "false" meldet nur.'
+    required: false
+    default: 'true'
+  python-version:
+    description: 'Python-Version fuer die Installation des Pakets.'
+    required: false
+    default: '3.13'
+
+outputs:
+  sarif-file:
+    description: 'Pfad des geschriebenen SARIF-Berichts.'
+    value: ${{ steps.scan.outputs.sarif-file }}
+  severity:
+    description: 'Hoechste gefundene Severity, oder NONE.'
+    value: ${{ steps.scan.outputs.severity }}
+  findings:
+    description: 'Zahl der Funde ab der Schwelle.'
+    value: ${{ steps.scan.outputs.findings }}
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    # github.action_path zeigt auf action/ innerhalb des ausgecheckten Repos.
+    # Eine Ebene darueber liegt pyproject.toml.
+    - name: Scanner installieren
+      shell: bash
+      run: python3 -m pip install --quiet "${{ github.action_path }}/.."
+
+    - name: Scannen
+      id: scan
+      shell: bash
+      env:
+        PIS_PATHS: ${{ inputs.paths }}
+        PIS_INCLUDE: ${{ inputs.include }}
+        PIS_FAIL_ON: ${{ inputs.fail-on }}
+        PIS_SARIF: ${{ inputs.sarif-file }}
+        PIS_FAIL_BUILD: ${{ inputs.fail-build }}
+      run: python3 "${{ github.action_path }}/run_action.py"
