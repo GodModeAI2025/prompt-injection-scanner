@@ -36,8 +36,15 @@ SEVERITY_ORDER = {'CRITICAL': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1, 'INFO': 0, 'N
 SEVERITY_SCORE = {'CRITICAL': 25, 'HIGH': 15, 'MEDIUM': 8, 'LOW': 3, 'INFO': 1}
 CONFIDENCE_ORDER = {'HIGH': 3, 'MEDIUM': 2, 'LOW': 1}
 
-# Ab dieser Confidence zaehlt ein Fund fuer Score, Severity-Rollup und Detection.
+# Ab dieser Confidence zaehlt ein Fund bei der Standardschwelle fuer Score,
+# Severity-Rollup und Detection.
 MIN_ACTIONABLE_CONFIDENCE = 2
+
+# Ab dieser Severity gilt ein Fund als Befund und nicht als Hinweis. Die
+# Schwelle stand bis Welle 5 nur in der Auswertungsschleife von
+# scripts/evaluate.py; jeder weitere Aufrufer haette sich seine eigene gebaut.
+# Evaluator, CLI, Hook und Action lesen sie deshalb von hier.
+MIN_REPORTABLE_SEVERITY = 'MEDIUM'
 
 
 # ============================================================
@@ -267,8 +274,22 @@ def damp(confidence: str) -> str:
 
 
 def is_actionable(finding) -> bool:
-    """Zaehlt der Fund fuer Score, Severity-Rollup und Detection?"""
+    """Traegt der Fund genug Confidence, um bei der Standardschwelle zu zaehlen?"""
     return CONFIDENCE_ORDER.get(finding.confidence, 2) >= MIN_ACTIONABLE_CONFIDENCE
+
+
+def counts_at(finding, threshold=MIN_REPORTABLE_SEVERITY) -> bool:
+    """Zaehlt der Fund bei dieser Schwelle fuer Score, Rollup und Urteil?
+
+    Ab MEDIUM zaehlt nur, was Confidence MEDIUM oder hoeher traegt. Bei Schwelle
+    LOW zaehlen zusaetzlich die Funde, die der Kontext abgewertet hat: das ist
+    der Schalter, mit dem die Abwertung sichtbar wird, und er muss auf Score,
+    Severity-Rollup und Urteil gleich wirken. Sonst nennt der Kopf der Ausgabe
+    INFO, waehrend der Exit-Code CRITICAL meldet.
+    """
+    if SEVERITY_ORDER.get(threshold, 2) <= SEVERITY_ORDER['LOW']:
+        return True
+    return is_actionable(finding)
 
 
 # ============================================================
@@ -735,19 +756,21 @@ def scan_text(text):
     return findings
 
 
-def get_highest(findings):
+def get_highest(findings, threshold=MIN_REPORTABLE_SEVERITY):
     if not findings: return 'NONE'
-    actionable = [f for f in findings if is_actionable(f)]
-    if not actionable: return 'INFO'
-    primary = [f for f in actionable if f.is_primary] or actionable
+    zaehlend = [f for f in findings if counts_at(f, threshold)]
+    if not zaehlend: return 'INFO'
+    primary = [f for f in zaehlend if f.is_primary] or zaehlend
     return max(primary, key=lambda f: SEVERITY_ORDER.get(f.severity, 0)).severity
 
-def calc_score(findings):
+def calc_score(findings, threshold=MIN_REPORTABLE_SEVERITY):
     s = 100
     cats = {}
     for f in findings:
-        # Funde mit gedaempfter Confidence zaehlen wie ein Hinweis, nicht wie ein Befund.
-        v = SEVERITY_ORDER.get(f.severity if is_actionable(f) else 'INFO', 0)
+        # Funde mit gedaempfter Confidence zaehlen wie ein Hinweis, nicht wie ein
+        # Befund. Bei Schwelle LOW zaehlen sie voll, sonst waere der Score die
+        # eine Zahl, die den abgewerteten Fund weiter verschweigt.
+        v = SEVERITY_ORDER.get(f.severity if counts_at(f, threshold) else 'INFO', 0)
         if f.category not in cats or v > cats[f.category]: cats[f.category] = v
     sn = {v: k for k, v in SEVERITY_ORDER.items()}
     for c, v in cats.items(): s -= SEVERITY_SCORE.get(sn.get(v, 'INFO'), 0)
@@ -757,15 +780,6 @@ def calc_score(findings):
 # ============================================================
 # Ergebnis eines Laufs
 # ============================================================
-#
-# Die Schwelle, ab der ein Fund zaehlt, stand bis Welle 5 nur in der
-# Auswertungsschleife von scripts/evaluate.py. Jeder weitere Aufrufer haette
-# sich seine eigene gebaut. Sie steht deshalb jetzt hier, und Evaluator, CLI,
-# Hook und Action lesen dieselbe.
-
-# Ab dieser Severity gilt ein Fund als Befund und nicht als Hinweis.
-MIN_REPORTABLE_SEVERITY = 'MEDIUM'
-
 
 def meaningful_findings(findings, threshold=MIN_REPORTABLE_SEVERITY):
     """Funde ab der geforderten Severity.
@@ -777,10 +791,8 @@ def meaningful_findings(findings, threshold=MIN_REPORTABLE_SEVERITY):
     auf einem abgewerteten CRITICAL-Fund weiterhin Exit 0.
     """
     limit = SEVERITY_ORDER.get(threshold, 2)
-    with_damped = limit <= SEVERITY_ORDER['LOW']
     return [f for f in findings
-            if (with_damped or is_actionable(f))
-            and SEVERITY_ORDER.get(f.severity, 0) >= limit]
+            if counts_at(f, threshold) and SEVERITY_ORDER.get(f.severity, 0) >= limit]
 
 
 def is_detected(findings, threshold=MIN_REPORTABLE_SEVERITY):
@@ -836,8 +848,8 @@ def scan(text, source='<text>', threshold=MIN_REPORTABLE_SEVERITY):
     findings = scan_text(text)
     return ScanResult(
         findings=findings,
-        highest_severity=get_highest(findings),
-        score=calc_score(findings),
+        highest_severity=get_highest(findings, threshold),
+        score=calc_score(findings, threshold),
         detected=is_detected(findings, threshold),
         source=source,
     )

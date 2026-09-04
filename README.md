@@ -45,7 +45,7 @@ Bis kurz vor `v0.2.0` entschied darüber zusätzlich eine Befehlsprüfung: eine 
 
 Zwischen `1.` und `-` entschied der Punkt in der Nummerierung, nicht der Inhalt. Die Liste ist deshalb ersatzlos gestrichen und nicht um sieben Einträge länger geworden. Was jetzt zählt, ist eine Eigenschaft des Textes, die der Angreifer nur bekommt, wenn er seinen Angriff tatsächlich in Anführungszeichen setzt.
 
-Nachgestellt in `scripts/test_context_regression.py`, 24 Testfälle: acht Präfixvarianten, neun unsichtbare Trenner, sieben Schreibweisen der gemessenen Umgehung, jeweils mit und ohne Rahmen. Die Gegenprobe steht daneben: dieselben Formulierungen in Anführungszeichen bleiben INFO, ein Sicherheitsartikel wird davon nicht laut, auch wenn er im Ganzen in Anführungszeichen weitergereicht wird.
+Nachgestellt in `scripts/test_context_regression.py`, 26 Testfälle: acht Präfixvarianten, neun unsichtbare Trenner, sieben Schreibweisen der gemessenen Umgehung, jeweils mit und ohne Rahmen. Die Gegenprobe steht daneben: dieselben Formulierungen in Anführungszeichen bleiben INFO, ein Sicherheitsartikel wird davon nicht laut, auch wenn er im Ganzen in Anführungszeichen weitergereicht wird.
 
 Was bleibt: wer zwei Bildungssignale setzt **und** seinen Angriff in Anführungszeichen stellt, bekommt Confidence LOW und ist aus dem Urteil raus. Sichtbar wird das nur mit `--fail-on LOW`, und genau dafür ist dieser Schalter da.
 

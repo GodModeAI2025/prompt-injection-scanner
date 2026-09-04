@@ -50,6 +50,7 @@ is_cited = engine.is_cited
 damp = engine.damp
 redact = engine.redact
 is_actionable = engine.is_actionable
+counts_at = engine.counts_at
 check_base64 = engine.check_base64
 check_unicode_injection = engine.check_unicode_injection
 scan_text = engine.scan_text

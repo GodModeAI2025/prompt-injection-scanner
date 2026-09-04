@@ -55,7 +55,7 @@ nicht dazu, installiert wird aus dem Repo oder aus dem entpackten Release-Archiv
   auf `LOW` entscheidet jetzt allein, ob jeder Treffer eines Musters in einem Zitat, einem Code-Block
   oder zwischen Backticks steht. Ein früherer Zwischenschritt, der Höflichkeitspräfixe und
   unsichtbare Zeichen in dieselbe Liste aufgenommen hatte, ist damit hinfällig; die Fälle stehen
-  weiter in `scripts/test_context_regression.py`, jetzt 24 statt 17.
+  weiter in `scripts/test_context_regression.py`, jetzt 26 statt 17.
 - **Anführungszeichen werden mit einem Stapel gepaart, nicht mit starrer Abwechslung.** Ein Zitat im
   Zitat paarte das äußere mit dem inneren Zeichen; der zitierte Angriffssatz lag dann zwischen zwei
   Spannen und galt als unzitiert. Gemessen waren das drei False Positives auf der generierten Suite,
@@ -64,7 +64,9 @@ nicht dazu, installiert wird aus dem Repo oder aus dem entpackten Release-Archiv
   filterte unabhängig von der Schwelle auf Confidence ab MEDIUM. `pis-scan --fail-on LOW` und
   `pis-hook-pretooluse --fail-on LOW` lieferten auf einem abgewerteten CRITICAL-Fund weiterhin
   Exit 0, der Fund stand als "CRITICAL LOW" im Bericht und wirkte auf keine Entscheidung. Damit gab
-  es keinen Schalter, mit dem ein Verteidiger die Abwertung überhaupt sieht.
+  es keinen Schalter, mit dem ein Verteidiger die Abwertung überhaupt sieht. Die Schwelle wirkt
+  dabei auf alle drei Zahlen: `get_highest()` und `calc_score()` nehmen sie ebenfalls entgegen,
+  sonst nennt die Kopfzeile `Severity INFO, Score 99`, während der Exit-Code CRITICAL meldet.
 - **Die Wortfolge "system prompt" ist kein Leet-Speak-Muster mehr.** Sie stand als eigener Treffer in
   der Gruppe `leet_speak` und machte jede Chatbot-Dokumentation zum HIGH-Fund, sobald die
   Kontext-Bewertung nicht mehr an der Formulierung hing. Das Muster verlangt jetzt eine echte

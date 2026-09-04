@@ -7,7 +7,10 @@ hier keine zweite Erkennung und keine zweite Schwelle.
 Die Schwelle `--fail-on` steuert, welche Funde zaehlen. Ab MEDIUM zaehlen nur
 Funde mit Confidence MEDIUM oder hoeher; bei LOW zaehlen auch die Funde, die der
 Kontext abgewertet hat. Ein zitierter CRITICAL-Fund bleibt damit im Standardlauf
-still und wird mit `--fail-on LOW` sichtbar, mit Exit-Code 4 fuer seine Severity.
+still ("Severity INFO, Score 99", Exit 0) und wird mit `--fail-on LOW` als
+"Severity CRITICAL, Score 75" mit Exit 4 gemeldet. Kopfzeile, Score, JSON-Feld
+`highest_severity` und Exit-Code folgen derselben Schwelle; wuerden sie das
+nicht, meldete der Kopf INFO, waehrend der Exit-Code CRITICAL sagt.
 
 Exit-Codes richten sich nach der hoechsten gefundenen Severity, damit eine
 Pipeline ohne JSON-Parsen entscheiden kann:

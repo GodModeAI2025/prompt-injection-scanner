@@ -65,8 +65,8 @@ Was der Angreifer noch hat: er kann zwei Bildungssignale setzen **und** seinen A
 Anführungszeichen stellen. Dann fällt der Fund auf Confidence LOW und ist aus Score, Rollup und
 Urteil heraus. Das ist keine Formulierungsfrage mehr, sondern die bewusste Entscheidung, zitierten
 Text als Dokumentation zu behandeln, und sie ist sichtbar: `--fail-on LOW` zählt die abgewerteten
-Funde mit, in der CLI wie im Hook. Ohne diesen Schalter wäre eine Abwertung von einem sauberen Text
-nicht zu unterscheiden.
+Funde mit, in der CLI wie im Hook, und zwar für Kopfzeile, Score, `highest_severity` und Exit-Code
+gemeinsam. Ohne diesen Schalter wäre eine Abwertung von einem sauberen Text nicht zu unterscheiden.
 
 Offen bleibt der Ansatz selbst: die drei Kontext-Prüfer leiten ihre Einschätzung weiter aus dem
 untrusted Input ab. Wer die Signalliste liest, kann sie bedienen. Der Schaden ist begrenzt, weil nur
@@ -167,7 +167,7 @@ Offen, Stand heute. Kein Fix zugesagt, kein Datum.
    `--fail-on LOW`; dort zählen die abgewerteten Funde mit.
 
    `scripts/test-suite.json` enthält weiterhin keinen Fall, der Angriff und Bildungsrahmen
-   kombiniert; abgedeckt ist das nur in `scripts/test_context_regression.py`, 24 Fälle.
+   kombiniert; abgedeckt ist das nur in `scripts/test_context_regression.py`, 26 Fälle.
 
 2. **Die ausgewiesene Erkennungsrate belegt nichts.** F1 100 Prozent, 0 Prozent False Positives,
    gemessen von `scripts/evaluate.py` gegen die mitgelieferte `test-suite.json`. Dieselbe Codebasis

@@ -88,6 +88,16 @@ class CliExitCodes(unittest.TestCase):
         self.assertEqual(code_default, 0, out_default)
         self.assertEqual(code_low, 4, out_low)
         self.assertIn('BEFUND', out_low)
+        # Kopfzeile und Exit-Code muessen dasselbe sagen.
+        self.assertIn('Severity CRITICAL', out_low)
+        self.assertIn('Severity INFO', out_default)
+
+        _code, out_json, _ = scan(['--fail-on', 'LOW', '--format', 'json',
+                                   '--text', zitiert])
+        ergebnis = json.loads(out_json)['results'][0]
+        self.assertTrue(ergebnis['detected'])
+        self.assertEqual(ergebnis['highest_severity'], 'CRITICAL')
+        self.assertLess(ergebnis['score'], 80)
 
     def test_json_ausgabe(self):
         code, out, _ = scan(['--format', 'json', '--text', ANGRIFF])
