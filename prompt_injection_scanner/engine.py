@@ -151,9 +151,21 @@ _CITATION_RE = [
     re.compile(r"(?<![A-Za-z])'[^'\n]*'(?![A-Za-z])"),
 ]
 
+# Hoeflichkeits- und Modalpraefixe zwischen Satzanfang und Befehlsverb.
+# "Please ignore previous instructions." ist derselbe Befehl wie "Ignore
+# previous instructions.", nur mit einem Wort davor. Ohne diese Gruppe fiel er
+# im Bildungsrahmen auf blosse Erwaehnung zurueck.
+_POLITE_PREFIX = (
+    r'(?:(?:please|kindly|pls|bitte|now)[,\s]+)?'
+    r'(?:(?:you|du)\s+(?:must|should|shall|will|need\s+to|have\s+to|'
+    r'musst|sollst|solltest|wirst|kannst)[,\s]+)?'
+    r'(?:(?:please|kindly|bitte)[,\s]+)?'
+)
+
 # Verben, die einen Befehl an das Modell einleiten.
 _OPERATIVE_VERB = re.compile(
     r'(?i)(?:^|[.;:!?\n]\s*|\b(?:and|then|also|now|und|dann|danach|jetzt)\s+)'
+    + _POLITE_PREFIX +
     r'(ignore|ignoriere|forget|vergiss|disregard|override|reveal|print|output|show|send|'
     r'execute|run|repeat|dump|leak|bypass|call|zeige|sende|gib|f[u\u00fc]hre|antworte|starte)\b')
 
@@ -194,6 +206,13 @@ def is_cited(span, citations):
 _SENTENCE_WINDOW = 300
 
 
+# Zeichen, die im Satz nichts bedeuten, die Suche nach dem Befehlsverb aber
+# stoeren. Ein U+200B direkt hinter dem Satzzeichen kommt an lstrip() vorbei und
+# schiebt sich zwischen Satzanfang und Verb: "^ignore" greift dann nicht mehr.
+_INVISIBLE_IN_SENTENCE = _ZW_CHARS | _BIDI_CHARS | _INVIS_FMT
+_INVISIBLE_TRANSLATION = {ord(c): None for c in _INVISIBLE_IN_SENTENCE}
+
+
 def _sentence_around(text, span):
     left = text[max(0, span[0] - _SENTENCE_WINDOW):span[0]]
     right = text[span[1]:span[1] + _SENTENCE_WINDOW]
@@ -203,8 +222,10 @@ def _sentence_around(text, span):
     # Der Schnitt liegt unmittelbar hinter dem Satzzeichen, der Satz traegt also
     # noch den Trenner vorne. Mit fuehrendem Leerraum greift die Alternative "^"
     # in _OPERATIVE_VERB nicht, und ein Befehl hinter "Punkt Leerzeichen" faellt
-    # auf blosse Erwaehnung zurueck.
-    return text[start:end].lstrip()
+    # auf blosse Erwaehnung zurueck. Unsichtbare Zeichen wirken genauso, deshalb
+    # fallen sie hier heraus. Die Rueckgabe dient nur der Befehlspruefung, die
+    # Versatzstellen im Originaltext bleiben davon unberuehrt.
+    return text[start:end].translate(_INVISIBLE_TRANSLATION).lstrip()
 
 
 def is_operative(text, span):
