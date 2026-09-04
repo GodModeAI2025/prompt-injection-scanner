@@ -23,10 +23,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       # Haelt fest, dass Kontext die Confidence daempft und nicht die Severity.
-      # Rot, sobald ein Bildungs- oder Defense-Rahmen einen operativen Angriff
-      # wieder auf INFO druecken kann. Deckt seit Welle 5 auch die beiden
-      # geschlossenen Restluecken ab: Hoeflichkeitspraefix vor dem Befehlsverb
-      # und unsichtbares Zeichen hinter dem Satzzeichen.
+      # Rot, sobald ein Bildungs- oder Defense-Rahmen einen unzitierten Angriff
+      # wieder auf INFO druecken kann. Deckt die sieben Schreibweisen ab, mit
+      # denen sich die frueher benutzte Befehlspruefung umgehen liess, dazu
+      # neun unsichtbare Trenner, acht Hoeflichkeitspraefixe, verschachtelte
+      # Zitate und den Schalter --fail-on LOW.
       - name: Regressionstest der Kontext-Bewertung
         run: python3 scripts/test_context_regression.py
 
@@ -136,12 +137,60 @@ jobs:
       # diese Pruefung waere der Schritt darueber nur ein Test, ob action.yml
       # sich parsen laesst: fail-build steht auf false, ein falsches Urteil
       # bliebe gruen.
+      #
+      # Geprueft wird der Bericht und nicht seine Dateigroesse. "test -s" stand
+      # hier frueher und war bedeutungslos: ein Lauf ueber null Dateien
+      # (gemessen mit PIS_PATHS auf einen nicht existierenden Pfad) schreibt
+      # dasselbe gueltige Geruest mit leerem results-Feld, 378 Bytes.
       - name: Urteil der Action pruefen
+        env:
+          PIS_SEVERITY: ${{ steps.aktion.outputs.severity }}
+          PIS_FINDINGS: ${{ steps.aktion.outputs.findings }}
+          PIS_SARIF_FILE: ${{ steps.aktion.outputs.sarif-file }}
         run: |
-          if [ "${{ steps.aktion.outputs.severity }}" != "CRITICAL" ]; then
-            echo "Action meldet severity=${{ steps.aktion.outputs.severity }}, erwartet CRITICAL."
+          if [ "$PIS_SEVERITY" != "CRITICAL" ]; then
+            echo "Action meldet severity=$PIS_SEVERITY, erwartet CRITICAL."
             exit 1
           fi
-          test -s prompt-injection.sarif
-          echo "Action meldet CRITICAL und hat einen SARIF-Bericht geschrieben."
+          if [ "$PIS_FINDINGS" -lt 1 ]; then
+            echo "Action meldet findings=$PIS_FINDINGS, erwartet mindestens 1."
+            exit 1
+          fi
+          python3 - <<'PRUEFUNG'
+          import json
+          import os
+          import sys
+
+          pfad = os.environ['PIS_SARIF_FILE']
+          with open(pfad, encoding='utf-8') as datei:
+              bericht = json.load(datei)
+
+          lauf = bericht['runs'][0]
+          funde = lauf['results']
+          regeln = {regel['id'] for regel in lauf['tool']['driver']['rules']}
+          erwartet = int(os.environ['PIS_FINDINGS'])
+
+          fehler = []
+          if len(funde) != erwartet:
+              fehler.append('%s enthaelt %d Funde, outputs.findings nennt %d.'
+                            % (pfad, len(funde), erwartet))
+          if not funde:
+              fehler.append('%s hat ein leeres results-Feld.' % pfad)
+          for fund in funde:
+              if fund['ruleId'] not in regeln:
+                  fehler.append('Fund ohne Regel im Katalog: %s' % fund['ruleId'])
+              ort = fund['locations'][0]['physicalLocation']['artifactLocation']['uri']
+              if not ort.startswith('examples/'):
+                  fehler.append('Fund ausserhalb der geprueften Pfade: %s' % ort)
+          if not any(fund['level'] == 'error' for fund in funde):
+              fehler.append('Kein Fund mit level "error", obwohl severity CRITICAL gemeldet ist.')
+
+          if fehler:
+              for zeile in fehler:
+                  print(zeile)
+              sys.exit(1)
+          print('SARIF-Bericht: %d Fund/Funde, %d Regel(n), alle Orte unter examples/.'
+                % (len(funde), len(regeln)))
+          PRUEFUNG
+          echo "Action meldet CRITICAL und der SARIF-Bericht deckt sich damit."
 

@@ -103,6 +103,11 @@ nicht dazu, installiert wird aus dem Repo oder aus dem entpackten Release-Archiv
   entpackte Ordner ist damit Skill-Verzeichnis und Paketquelle zugleich; ohne Installation findet
   `scripts/evaluate.py` die Engine über einen Pfad-Fallback. Die CI entpackt das Archiv bei jedem
   Lauf und fährt beide Wege durch.
+- CI: der Schritt "Urteil der Action pruefen" prüft den SARIF-Bericht statt seiner Dateigröße.
+  `test -s` war bedeutungslos: ein Lauf über null Dateien (gemessen mit `PIS_PATHS` auf einen nicht
+  existierenden Pfad) schreibt dasselbe gültige Gerüst mit leerem `results`-Feld, 378 Bytes.
+  Geprüft werden jetzt `outputs.findings`, die Zahl der Ergebnisse im Bericht, der Regelkatalog, die
+  Fundorte und mindestens ein Ergebnis mit `level: error`.
 - CI: neue Schritte für `scripts/test_cli_hook.py`, den Lauf des entpackten Archivs ohne pip, ein
   `pip install .` mit Prüfung beider Konsolenbefehle und ein Durchlauf der Action gegen das eigene
   Repo.
