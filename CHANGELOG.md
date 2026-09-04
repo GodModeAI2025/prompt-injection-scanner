@@ -6,8 +6,8 @@ Der oberste Eintrag hier muss dieselbe Nummer tragen, sonst wird die CI rot
 dass `vX.Y.Z` zu `VERSION` passt.
 
 Die Zählung beginnt bei 0.1.0, weil es das erste Release des Repos ist. Ältere Bezeichnungen wie
-"v4" oder "Iteration 6" in Commit-Nachrichten, im Docstring von `scripts/evaluate.py` und in der
-README beziehen sich auf Entwicklungsstände der Pattern-Bibliothek, nicht auf veröffentlichte Pakete.
+"v4" oder "Iteration 6" in Commit-Nachrichten und in der README beziehen sich auf Entwicklungsstände
+der Pattern-Bibliothek, nicht auf veröffentlichte Pakete.
 Solange die Hauptversion 0 ist, können sich Ausgabeformat und Kategorienschnitt zwischen zwei
 Versionen ändern.
 

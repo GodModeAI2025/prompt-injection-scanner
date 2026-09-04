@@ -5,8 +5,13 @@ Bibliothek `prompt_injection_scanner`, nicht ein eigenes Skript.
 
 ## PreToolUse-Hook in Claude Code
 
-`claude-code-settings.json` ist ein vollstaendiger Hook-Eintrag. Kopieren nach
-`.claude/settings.json` im Projekt oder nach `~/.claude/settings.json`.
+`claude-code-settings.json` ist ein vollstaendiger Hook-Eintrag, ohne Kommentare
+und ohne Fremdschluessel, damit die Datei die Schema-Pruefung von Claude Code
+besteht. Kopieren nach `.claude/settings.json` im Projekt oder nach
+`~/.claude/settings.json`.
+
+Der `matcher` waehlt die Werkzeuge aus, die fremden Text hereinlassen: Bash und
+Write tragen Text weiter, WebFetch und Task holen ihn herein.
 
 ```bash
 pip install .                       # aus dem Repo, legt pis-hook-pretooluse an

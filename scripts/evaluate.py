@@ -23,13 +23,14 @@ import json
 import os
 import sys
 
-try:
-    from prompt_injection_scanner import engine
-except ImportError:
-    # Der Skill-Ordner aus dem Release-Archiv traegt das Paket neben scripts/.
-    # Ohne pip-Installation liegt es dann eine Ebene ueber dieser Datei.
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from prompt_injection_scanner import engine
+# Das Paket liegt eine Ebene ueber dieser Datei: im Repo neben scripts/, im
+# entpackten Release-Archiv genauso. Der Pfad kommt bewusst an den Anfang von
+# sys.path und nicht in einen ImportError-Fallback. Sonst misst der Evaluator
+# eine per pip installierte Version statt der Arbeitskopie, und genau diese
+# Drift zwischen zwei Kopien derselben Muster soll hier nicht entstehen.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from prompt_injection_scanner import engine
 
 # Namen, die dieses Modul frueher selbst definiert hat. `import evaluate as E`
 # aus scripts/test_context_regression.py und aus fremden Skripten laeuft damit

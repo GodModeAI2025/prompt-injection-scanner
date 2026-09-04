@@ -123,6 +123,7 @@ jobs:
       # gegen das Repo selbst, damit ein kaputtes action.yml auffaellt, bevor
       # jemand sie einbindet.
       - name: GitHub-Action gegen das eigene Repo fahren
+        id: aktion
         uses: ./action
         with:
           paths: 'examples'
@@ -130,3 +131,17 @@ jobs:
           fail-build: 'false'
           sarif-file: 'prompt-injection.sarif'
           python-version: ${{ matrix.python-version }}
+
+      # examples/README.md enthaelt den Beispielangriff im Kommandoblock. Ohne
+      # diese Pruefung waere der Schritt darueber nur ein Test, ob action.yml
+      # sich parsen laesst: fail-build steht auf false, ein falsches Urteil
+      # bliebe gruen.
+      - name: Urteil der Action pruefen
+        run: |
+          if [ "${{ steps.aktion.outputs.severity }}" != "CRITICAL" ]; then
+            echo "Action meldet severity=${{ steps.aktion.outputs.severity }}, erwartet CRITICAL."
+            exit 1
+          fi
+          test -s prompt-injection.sarif
+          echo "Action meldet CRITICAL und hat einen SARIF-Bericht geschrieben."
+
