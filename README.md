@@ -53,7 +53,7 @@ git clone https://github.com/GodModeAI2025/prompt-injection-scanner.git
 
 ## Was der Scanner erkennt
 
-### 3 Analyse-Schichten, 28+ Kategorien
+### 3 Analyse-Schichten, 28 Kategorien, 25 mit Erkennungsmuster
 
 ```
 Schicht 1 — Strukturelle Muster (regelbasiert)
@@ -66,7 +66,7 @@ Schicht 1 — Strukturelle Muster (regelbasiert)
 ├── Kat. 7:  False Memory / Fake Context
 ├── Kat. 8:  Fake Tool/API-Injection
 ├── Kat. 9:  Gamification / Social Games
-├── Kat. 10: Payload-Splitting (Multi-Turn)
+├── Kat. 10: Payload-Splitting (Multi-Turn, kein Erkennungsmuster)
 ├── Kat. 11: Delimiter / Markup-Manipulation
 └── Kat. 12: Datenleck-Trigger (System-Prompt-Extraktion)
 
@@ -93,10 +93,12 @@ Schicht 3 — Systemische Bewertung
 │   ├── 24f: Variation Selectors
 │   └── 24g: Invisible Formatting Characters
 ├── Kat. 25: Tool-Abuse / Agentic Threats / Agent Hijack
-├── Kat. 26: Data-Poisoning in RAG/Knowledge-Bases
-├── Kat. 27: Fehlende Härtungsmaßnahmen
+├── Kat. 26: Data-Poisoning in RAG/Knowledge-Bases (kein Erkennungsmuster)
+├── Kat. 27: Fehlende Härtungsmaßnahmen (nur im Audit-Modus des Skills)
 └── Kat. 28: Supply-Chain- / Infrastruktur-Risiken
 ```
+
+Die Liste ist der Stand der Pattern-Bibliothek `references/detection-patterns.md`. `scripts/evaluate.py` setzt davon 25 Kategorien um. Für Kat. 10, 26 und 27 gibt es dort kein Muster: Kat. 27 prüft der Skill im Audit-Modus, Kat. 10 und 26 sind bisher nur beschrieben.
 
 ## Praxis-Beispiele
 
@@ -242,7 +244,7 @@ Offene Punkte, in der Reihenfolge, in der sie das Ergebnis verbessern. Ohne Term
 
 - Höflichkeits- und Modalpräfixe vor dem Befehlsverb erkennen, also *please*, *kindly*, *you must*, *bitte*. Heute reicht eines davon, um im Bildungsrahmen von CRITICAL auf INFO zu fallen.
 - Unsichtbare Zeichen entfernen, bevor der Satz auf einen Befehl geprüft wird, und die Schwelle von drei Zero-Width-Zeichen in Kat. 24a nachrechnen. Dazu den aus Zero-Width- und Tag-Zeichen extrahierten Klartext selbst noch einmal scannen, statt nur die Zeichen zu zählen.
-- Testfälle für Kat. 8, 10, 23, 26 und 27, damit die Behauptung über die Kategorienabdeckung von der Suite gedeckt ist.
+- Testfälle für Kat. 8 und 23, damit die Behauptung über die Kategorienabdeckung von der Suite gedeckt ist. Für Kat. 10, 26 und 27 fehlt vorher das Erkennungsmuster in `scripts/evaluate.py`; ein Testfall wäre dort heute ein sicheres False Negative.
 - Eine Messung gegen eine fremde Suite. Erst dann sind die Zahlen oben mehr als eine Selbstauskunft.
 - Verpackung als installierbares Paket mit CLI, damit der Scanner auch ohne Claude-Skill-Umgebung läuft.
 
@@ -253,7 +255,7 @@ prompt-injection-scanner/
 ├── .github/workflows/ci.yml              # CI: Regressionstest, Suite, Argumentpruefung, Generator
 ├── SKILL.md                              # Hauptdatei: Workflow, Beispiele, Scoping
 ├── references/
-│   ├── detection-patterns.md             # 28+ Kategorien, 3 Schichten, Kat. 24 mit 7 Sub-Kategorien
+│   ├── detection-patterns.md             # 28 Kategorien, 3 Schichten, Kat. 24 mit 7 Sub-Kategorien
 │   └── hardening-templates.md            # Härtungs-Textvorschläge zum Copy-Paste
 ├── scripts/
 │   ├── evaluate.py                       # Automatisierter Pattern-Tester mit Unicode-Detection
@@ -262,7 +264,7 @@ prompt-injection-scanner/
 └── red-team-generator/                   # NEU
     ├── SKILL.md                          # Dokumentation und Nutzung
     └── scripts/
-        └── generate.py                   # Testfall-Generator für 17 Kategorien
+        └── generate.py                   # Testfall-Generator für 12 der 28 Kategorien
 ```
 
 ## Quellen und Grundlagen

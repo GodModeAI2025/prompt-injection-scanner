@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Prompt Injection Scanner — AI Security Skill</title>
-<meta name="description" content="Security-Skill für agentische KI-Systeme. 28+ Erkennungskategorien inkl. Unicode Injection Detection, 100% F1-Score und 0% False Positives auf der eigenen Test-Suite. Mit Red-Team-Generator.">
+<meta name="description" content="Security-Skill für agentische KI-Systeme. 28 dokumentierte Erkennungskategorien, 25 davon mit Erkennungsmuster, inkl. Unicode Injection Detection, 100% F1-Score und 0% False Positives auf der eigenen Test-Suite. Mit Red-Team-Generator.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -496,7 +496,7 @@ footer {
       Security-Skill fuer agentische KI-Systeme. Erkennt versteckte Anweisungen, Jailbreak-Versuche und Social Engineering in Dokumenten, Skills und System Prompts &mdash; bevor sie Schaden anrichten.
     </p>
     <div class="hero-stats">
-      <div><div class="stat-val">28</div><div class="stat-label">Erkennungskategorien</div></div>
+      <div><div class="stat-val">25/28</div><div class="stat-label">Kategorien mit Erkennungsmuster</div></div>
       <div><div class="stat-val">3</div><div class="stat-label">Analyse-Schichten</div></div>
       <div><div class="stat-val">0%</div><div class="stat-label">False-Positive-Rate</div></div>
       <div><div class="stat-val">66</div><div class="stat-label">Validierte Tests</div></div>
@@ -722,9 +722,9 @@ footer {
 <section class="sect">
   <div class="wrap">
     <div class="sect-label">Erkennung</div>
-    <h2 class="reveal">28+ Kategorien in 3 Schichten</h2>
+    <h2 class="reveal">28 Kategorien in 3 Schichten</h2>
     <p class="sect-desc reveal">
-      Von offensichtlichen Overrides bis zu unsichtbaren Unicode-Injections und mehrstufigem Social Engineering.
+      Von offensichtlichen Overrides bis zu unsichtbaren Unicode-Injections und mehrstufigem Social Engineering. scripts/evaluate.py setzt 25 der 28 Kategorien um, fuer Kat. 10, 26 und 27 gibt es dort kein Muster.
     </p>
 
     <div class="cat-grid reveal">
@@ -825,7 +825,7 @@ footer {
     <div class="sect-label">Evaluation</div>
     <h2 class="reveal">6 Iterationen, 66 Tests</h2>
     <p class="sect-desc reveal">
-      Entwickelt durch systematisches Test-Driven-Improvement gegen reale Red-Team-Daten. Iteration 6 durch den eigenen Red-Team-Generator validiert (2040 generierte Tests, 30 Seeds mit je 68 Fällen, jeder Lauf mit Exit-Code 0). Alle Zahlen dieser Seite stammen aus der Suite des Projekts, nicht aus einem fremden Benchmark. Messgrundlage, Stand und bekannte Lücken der Kontext-Bewertung stehen im <a href="https://github.com/GodModeAI2025/prompt-injection-scanner#evaluation">README</a>.
+      Entwickelt durch systematisches Test-Driven-Improvement gegen reale Red-Team-Daten. Iteration 6 durch den eigenen Red-Team-Generator validiert (2040 generierte Tests, 30 Seeds mit je 68 Fällen, jeder Lauf mit Exit-Code 0). Alle Zahlen dieser Seite stammen aus der Suite des Projekts, nicht aus einem fremden Benchmark. Aus dem Repo nachrechnen lässt sich nur Zeile 6 der Tabelle: die Suiten der Zeilen 1 bis 5 sind historische Zwischenstände und liegen nicht bei. Messgrundlage, Stand und bekannte Lücken der Kontext-Bewertung stehen im <a href="https://github.com/GodModeAI2025/prompt-injection-scanner#evaluation">README</a>.
     </p>
 
     <div style="overflow-x:auto;" class="reveal">
@@ -856,7 +856,7 @@ footer {
       <span class="f">prompt-injection-scanner/</span><br>
       &#x251C;&#x2500;&#x2500; <span class="d">SKILL.md</span> <span class="c">&mdash; Workflow, 5 Beispiele, Scoping</span><br>
       &#x251C;&#x2500;&#x2500; <span class="f">references/</span><br>
-      &#x2502;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="d">detection-patterns.md</span> <span class="c">&mdash; 28+ Kat., 3 Schichten, Kat. 24 mit 7 Sub-Kategorien</span><br>
+      &#x2502;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="d">detection-patterns.md</span> <span class="c">&mdash; 28 Kat., 3 Schichten, Kat. 24 mit 7 Sub-Kategorien</span><br>
       &#x2502;&nbsp;&nbsp; &#x2514;&#x2500;&#x2500; <span class="d">hardening-templates.md</span> <span class="c">&mdash; Copy-Paste-Vorlagen zum Haerten</span><br>
       &#x251C;&#x2500;&#x2500; <span class="f">scripts/</span><br>
       &#x2502;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="d">evaluate.py</span> <span class="c">&mdash; Automatisierter Pattern-Tester mit Unicode-Detection</span><br>
@@ -865,7 +865,7 @@ footer {
       &#x2514;&#x2500;&#x2500; <span class="f">red-team-generator/</span> <span class="c" style="color:var(--green);">&mdash; NEU</span><br>
       &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="d">SKILL.md</span> <span class="c">&mdash; Dokumentation und Nutzung</span><br>
       &nbsp;&nbsp;&nbsp; &#x2514;&#x2500;&#x2500; <span class="f">scripts/</span><br>
-      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &#x2514;&#x2500;&#x2500; <span class="d">generate.py</span> <span class="c">&mdash; Testfall-Generator fuer alle 17 Kategorien</span>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &#x2514;&#x2500;&#x2500; <span class="d">generate.py</span> <span class="c">&mdash; Testfall-Generator fuer 12 der 28 Kategorien</span>
     </div>
   </div>
 </section>

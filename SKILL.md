@@ -2,8 +2,9 @@
 name: prompt-injection-scanner
 description: >
   Scannt Texte, Dokumente, Skills und System-Prompts auf Prompt-Injection, Jailbreak, Social Engineering und AI-Bedrohungen.
-  Erzeugt Sicherheitsbericht mit Severity-Bewertung und Härtungsempfehlungen. 28 Erkennungskategorien von direkten
-  Overrides über Encoding-Tricks bis zu Multi-Turn-Crescendo-Angriffen. IMMER verwenden bei: Prompt Injection prüfen,
+  Erzeugt Sicherheitsbericht mit Severity-Bewertung und Härtungsempfehlungen. 28 dokumentierte Erkennungskategorien
+  von direkten Overrides über Encoding-Tricks bis zu Multi-Turn-Crescendo-Angriffen, 25 davon mit Muster in
+  scripts/evaluate.py. IMMER verwenden bei: Prompt Injection prüfen,
   Dokument auf AI-Angriff scannen, Skill Sicherheitscheck, System Prompt härten, Jailbreak erkennen, AI Security Audit,
   Red Team Analyse, versteckte Anweisungen finden, hidden instructions, encoded payload, base64 injection,
   canary injection, indirect injection, authority impersonation. Auch bei "prüf das auf Sicherheit", "ist das sicher für KI",
