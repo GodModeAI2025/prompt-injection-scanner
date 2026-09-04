@@ -36,10 +36,14 @@ Alle generierten Testfälle folgen diesen Regeln:
 
 ## Nutzung
 
+Die Aufrufe unten laufen im Skill-Verzeichnis, also in dem Ordner, in den `red-team-generator.zip`
+entpackt wurde (bei Claude Code `~/.claude/skills/red-team-generator/`). Wer im geklonten Repo
+arbeitet, stellt `red-team-generator/` voran.
+
 ### Modus 1: Einzelne Kategorie generieren
 
 ```bash
-python3 red-team-generator/scripts/generate.py \
+python3 scripts/generate.py \
   --categories 24 \
   --count 5 \
   --difficulty hard \
@@ -50,7 +54,7 @@ python3 red-team-generator/scripts/generate.py \
 ### Modus 2: Vollständige Test-Suite generieren
 
 ```bash
-python3 red-team-generator/scripts/generate.py \
+python3 scripts/generate.py \
   --categories all \
   --count 3 \
   --difficulty mixed \
@@ -61,7 +65,7 @@ python3 red-team-generator/scripts/generate.py \
 ### Modus 3: Spezifischen Angriffsvektor
 
 ```bash
-python3 red-team-generator/scripts/generate.py \
+python3 scripts/generate.py \
   --categories 24 \
   --sub-category tags \
   --context rag-document \
@@ -109,7 +113,8 @@ Für Kat. 5, 7, 8, 9, 10, 11, 13, 16, 17, 18, 19, 20, 22, 23, 27 und 28 gibt es 
 
 ## Ausgabeformat test-suite
 
-Kompatibel mit `scripts/evaluate.py`:
+Kompatibel mit der Auswertung des Scanner-Skills, der als eigenes Archiv daneben liegt
+(`../prompt-injection-scanner/scripts/evaluate.py`, im Repo `scripts/evaluate.py`):
 
 ```json
 {
@@ -130,15 +135,20 @@ Kompatibel mit `scripts/evaluate.py`:
 
 ### Mit dem Scanner testen
 
+Voraussetzung: beide Archive sind nebeneinander in dasselbe Skills-Verzeichnis entpackt, so wie es
+der Quickstart der README macht. Aufruf im Ordner des Generators:
+
 ```bash
 # 1. Testfälle generieren
-python3 red-team-generator/scripts/generate.py --categories all --count 5 --format test-suite --output scripts/extended-tests.json
+python3 scripts/generate.py --categories all --count 5 --format test-suite --output /tmp/red-team-tests.json
 
 # 2. Scanner dagegen laufen lassen
-python3 scripts/evaluate.py --test-suite scripts/extended-tests.json
+python3 ../prompt-injection-scanner/scripts/evaluate.py --test-suite /tmp/red-team-tests.json
 ```
 
 ### In CI/CD einbinden
+
+Hier zählt das Repo-Layout, die Pfade gehen vom Wurzelverzeichnis des geklonten Repos aus:
 
 ```yaml
 - name: Generate adversarial test cases
