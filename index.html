@@ -850,10 +850,13 @@ footer {
 <section class="sect">
   <div class="wrap">
     <div class="sect-label">Aufbau</div>
-    <h2 class="reveal">Was im Paket steckt</h2>
+    <h2 class="reveal">Was in den Archiven steckt</h2>
+    <p class="sect-desc reveal">
+      Ein Release haengt zwei Archive an. Scanner und Red-Team-Generator sind zwei Skills mit je eigener SKILL.md: als Unterordner im selben Paket wuerde die zweite nie geladen. Jedes Archiv entpackt in einen Ordner, der direkt in das Skills-Verzeichnis passt. Gebaut werden beide vom Skript scripts/package.py, das laeuft ohne Netz und liefert bei zwei Laeufen dieselben Bytes. Nicht enthalten: .git, .github und diese Seite. Die Dateien liegen unter <a href="https://github.com/GodModeAI2025/prompt-injection-scanner/releases">Releases</a>.
+    </p>
 
-    <div class="tree reveal">
-      <span class="f">prompt-injection-scanner/</span><br>
+    <div class="tree reveal" style="margin-bottom:20px;">
+      <span class="f">prompt-injection-scanner.zip</span><br>
       &#x251C;&#x2500;&#x2500; <span class="d">SKILL.md</span> <span class="c">&mdash; Workflow, 5 Beispiele, Scoping</span><br>
       &#x251C;&#x2500;&#x2500; <span class="f">references/</span><br>
       &#x2502;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="d">detection-patterns.md</span> <span class="c">&mdash; 28 Kat., 3 Schichten, Kat. 24 mit 7 Sub-Kategorien</span><br>
@@ -862,10 +865,17 @@ footer {
       &#x2502;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="d">evaluate.py</span> <span class="c">&mdash; Automatisierter Pattern-Tester mit Unicode-Detection</span><br>
       &#x2502;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="d">test_context_regression.py</span> <span class="c">&mdash; Regressionstests der Kontext-Bewertung</span><br>
       &#x2502;&nbsp;&nbsp; &#x2514;&#x2500;&#x2500; <span class="d">test-suite.json</span> <span class="c">&mdash; 66 Tests (50 boesartig, 16 gutartig)</span><br>
-      &#x2514;&#x2500;&#x2500; <span class="f">red-team-generator/</span> <span class="c" style="color:var(--green);">&mdash; NEU</span><br>
-      &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="d">SKILL.md</span> <span class="c">&mdash; Dokumentation und Nutzung</span><br>
-      &nbsp;&nbsp;&nbsp; &#x2514;&#x2500;&#x2500; <span class="f">scripts/</span><br>
-      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &#x2514;&#x2500;&#x2500; <span class="d">generate.py</span> <span class="c">&mdash; Testfall-Generator fuer 12 der 28 Kategorien</span>
+      &#x251C;&#x2500;&#x2500; <span class="d">LICENSE</span><br>
+      &#x2514;&#x2500;&#x2500; <span class="d">VERSION</span> <span class="c">&mdash; Nummer des Releases, Quelle ist VERSION im Repo</span>
+    </div>
+
+    <div class="tree reveal">
+      <span class="f">red-team-generator.zip</span><br>
+      &#x251C;&#x2500;&#x2500; <span class="d">SKILL.md</span> <span class="c">&mdash; Dokumentation und Nutzung</span><br>
+      &#x251C;&#x2500;&#x2500; <span class="f">scripts/</span><br>
+      &#x2502;&nbsp;&nbsp; &#x2514;&#x2500;&#x2500; <span class="d">generate.py</span> <span class="c">&mdash; Testfall-Generator fuer 12 der 28 Kategorien</span><br>
+      &#x251C;&#x2500;&#x2500; <span class="d">LICENSE</span><br>
+      &#x2514;&#x2500;&#x2500; <span class="d">VERSION</span>
     </div>
   </div>
 </section>
@@ -918,6 +928,7 @@ footer {
   <p class="reveal">Bevor ein vergiftetes Dokument deine KI uebernimmt.</p>
   <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;" class="reveal">
     <a href="https://github.com/GodModeAI2025/prompt-injection-scanner" class="btn btn-g">GitHub Repository</a>
+    <a href="https://github.com/GodModeAI2025/prompt-injection-scanner/releases" class="btn btn-o">Releases &rarr;</a>
     <a href="https://github.com/GodModeAI2025/prompt-injection-scanner/blob/main/SKILL.md" class="btn btn-o">Dokumentation &rarr;</a>
   </div>
 </section>
