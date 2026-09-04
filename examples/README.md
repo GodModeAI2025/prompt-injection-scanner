@@ -37,8 +37,14 @@ echo '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command"
 ```
 
 Die Schwelle laesst sich verschieben: `pis-hook-pretooluse --fail-on HIGH`
-blockiert erst ab HIGH. `--tools Bash,WebFetch` grenzt zusaetzlich ein, wenn der
-`matcher` in der settings.json weiter gefasst ist als gewollt.
+blockiert erst ab HIGH, `--fail-on LOW` blockiert zusaetzlich bei Funden, die
+der Kontext abgewertet hat. `--tools Bash,WebFetch` grenzt zusaetzlich ein, wenn
+der `matcher` in der settings.json weiter gefasst ist als gewollt.
+
+Der Hook liest hoechstens 200 Zeichenketten, 8 Verschachtelungsebenen und 200000
+Zeichen je Feld. Nimmt eine dieser Grenzen etwas aus der Pruefung, blockiert er
+und nennt die Stelle; `--on-limit warn` laesst den Aufruf stattdessen mit einem
+Hinweis auf stderr durch.
 
 Warum der Hook nicht die Exit-Codes von `pis-scan` durchreicht: Claude Code
 liest `0` als "durchlassen", `2` als "blockieren" und alles andere als

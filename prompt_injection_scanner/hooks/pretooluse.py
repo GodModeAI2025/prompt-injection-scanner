@@ -14,10 +14,18 @@ Eingabe (Auszug aus dem Hook-Vertrag von Claude Code):
 Ausgabe und Exit-Codes:
 
     0   kein Fund. Keine Entscheidung, der normale Berechtigungsweg gilt.
-    2   Fund ab der Schwelle. Der Aufruf wird blockiert, die Begruendung steht
-        als JSON auf stdout und im Klartext auf stderr.
+    2   Fund ab der Schwelle, oder der Aufruf konnte nicht vollstaendig geprueft
+        werden. Der Aufruf wird blockiert, die Begruendung steht als JSON auf
+        stdout und im Klartext auf stderr.
     1   Der Hook selbst ist gescheitert (Eingabe kein JSON, Feld fehlt). Der
         Aufruf laeuft weiter, Claude Code zeigt einen Hinweis.
+
+Zu den Grenzen: `tool_input` wird auf 200 Zeichenketten, 8 Verschachtelungs-
+ebenen und 200000 Zeichen je Feld begrenzt. Wer diese Zahlen kennt, kann sein
+Nutzfeld dahinter legen. Deshalb endet ein Aufruf, bei dem eine Grenze etwas
+aus der Pruefung genommen hat, nicht mehr still mit 0: er wird blockiert und
+die Begruendung nennt die Stelle. `--on-limit warn` gibt die Entscheidung an
+den Aufrufer zurueck, dann steht der Hinweis nur auf stderr.
 
 Warum nicht die Exit-Codes von `pis-scan`: dort steht 4 fuer CRITICAL. Claude
 Code liest alles ausser 0 und 2 als "Hook kaputt" und laesst den Aufruf laufen.
@@ -52,38 +60,79 @@ EXIT_BLOCK = 2
 SEVERITIES = ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')
 
 # Tiefe und Menge begrenzen: tool_input kommt aus einem Modelllauf, nicht aus
-# einer vertrauenswuerdigen Quelle.
+# einer vertrauenswuerdigen Quelle. Wer diese Grenzen kennt, kann sie ansteuern:
+# 201 Zeichenketten vor dem Nutzfeld, neun Verschachtelungsebenen oder 200001
+# Fuellzeichen genuegten, damit der Angriff nicht mehr gescannt wurde. Der Hook
+# endete dann mit 0 und ohne Ausgabe, ein durchgelassener Aufruf war von einem
+# sauberen nicht zu unterscheiden. Deshalb wird jedes Ueberschreiten gemeldet
+# und standardmaessig blockiert; `--on-limit warn` gibt die Entscheidung ab.
 _MAX_DEPTH = 8
 _MAX_STRINGS = 200
 _MAX_CHARS = 200000
 
 
-def collect_strings(value, path='tool_input', depth=0, collected=None):
+def _has_content(value):
+    """Traegt der Wert ueberhaupt Text, den der Scanner lesen wuerde?"""
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, (dict, list, tuple)):
+        return bool(value)
+    return False
+
+
+def collect_strings(value, path='tool_input', depth=0, collected=None, skipped=None):
     """Alle Zeichenketten aus einem verschachtelten Werkzeug-Argument.
 
     Ein Angriff steckt selten im Feld, das man erwartet. Deshalb wird jedes
     String-Feld gescannt und nicht nur `command` oder `content`.
+
+    Rueckgabe: `(felder, uebergangen)`. `uebergangen` nennt jede Stelle, an der
+    eine Grenze etwas aus der Pruefung genommen hat. Gezaehlt wird, was
+    tatsaechlich wegfaellt, nicht das Erreichen der Grenze: genau
+    `_MAX_STRINGS` Zeichenketten sind vollstaendig geprueft, die 201. nicht.
     """
     if collected is None:
         collected = []
-    if len(collected) >= _MAX_STRINGS or depth > _MAX_DEPTH:
-        return collected
+    if skipped is None:
+        skipped = []
+
+    if depth > _MAX_DEPTH:
+        if _has_content(value):
+            skipped.append('%s liegt tiefer als %d Ebenen und wurde nicht geprueft'
+                           % (path, _MAX_DEPTH))
+        return collected, skipped
+
     if isinstance(value, str):
-        if value.strip():
-            collected.append((path, value[:_MAX_CHARS]))
+        if not value.strip():
+            return collected, skipped
+        if len(collected) >= _MAX_STRINGS:
+            skipped.append('%s faellt hinter die Grenze von %d Zeichenketten und '
+                           'wurde nicht geprueft' % (path, _MAX_STRINGS))
+            return collected, skipped
+        if len(value) > _MAX_CHARS:
+            skipped.append('%s ist %d Zeichen lang, geprueft wurden die ersten %d'
+                           % (path, len(value), _MAX_CHARS))
+        collected.append((path, value[:_MAX_CHARS]))
     elif isinstance(value, dict):
         for key in sorted(value):
-            collect_strings(value[key], '%s.%s' % (path, key), depth + 1, collected)
+            collect_strings(value[key], '%s.%s' % (path, key), depth + 1,
+                            collected, skipped)
     elif isinstance(value, (list, tuple)):
         for index, item in enumerate(value):
-            collect_strings(item, '%s[%d]' % (path, index), depth + 1, collected)
-    return collected
+            collect_strings(item, '%s[%d]' % (path, index), depth + 1,
+                            collected, skipped)
+    return collected, skipped
 
 
 def evaluate(payload, threshold=MIN_REPORTABLE_SEVERITY):
-    """Liefert (blockieren, begruendung, treffer) fuer einen Hook-Aufruf."""
+    """Liefert (blockieren, begruendung, treffer, uebergangen) fuer einen Aufruf.
+
+    `blockieren` bezieht sich nur auf gefundene Injections. Was mit einem
+    unvollstaendig geprueften Aufruf geschieht, entscheidet `main()` anhand von
+    `--on-limit`; die Begruendung nennt das Uebergangene in beiden Faellen.
+    """
     tool_name = payload.get('tool_name') or 'unbekannt'
-    fields = collect_strings(payload.get('tool_input', {}))
+    fields, skipped = collect_strings(payload.get('tool_input', {}))
 
     hits = []
     for path, text in fields:
@@ -92,7 +141,7 @@ def evaluate(payload, threshold=MIN_REPORTABLE_SEVERITY):
             hits.append((path, finding, result))
 
     if not hits:
-        return False, '', []
+        return False, '', [], skipped
 
     hits.sort(key=lambda h: -SEVERITY_ORDER.get(h[1].severity, 0))
     worst_path, worst, worst_result = hits[0]
@@ -103,7 +152,9 @@ def evaluate(payload, threshold=MIN_REPORTABLE_SEVERITY):
         % (tool_name, worst.severity, worst.category, worst.confidence, worst_path,
            worst_result.score, redact(worst.pattern_matched), len(hits), threshold)
     )
-    return True, reason, hits
+    if skipped:
+        reason += ' Ausserdem unvollstaendig geprueft: %s.' % '; '.join(skipped)
+    return True, reason, hits, skipped
 
 
 def main(argv=None):
@@ -116,6 +167,13 @@ def main(argv=None):
                         help='Ab welcher Severity blockiert wird. Standard: %s. '
                              'LOW blockiert zusaetzlich bei Funden, die der Kontext auf '
                              'Confidence LOW gedrueckt hat.' % MIN_REPORTABLE_SEVERITY)
+    parser.add_argument('--on-limit', choices=('block', 'warn'), default='block',
+                        help='Was geschieht, wenn eine der Grenzen (%d Zeichenketten, '
+                             '%d Verschachtelungsebenen, %d Zeichen je Feld) etwas aus '
+                             'der Pruefung nimmt. "block": den Aufruf ablehnen, weil er '
+                             'nicht vollstaendig geprueft werden konnte (Standard). '
+                             '"warn": nur auf stderr melden und durchlassen.'
+                             % (_MAX_STRINGS, _MAX_DEPTH, _MAX_CHARS))
     parser.add_argument('--tools', metavar='NAME[,NAME...]', default=None,
                         help='Nur diese Werkzeugnamen pruefen. Ohne Angabe alle. '
                              'Die Vorauswahl gehoert eigentlich in den matcher der '
@@ -137,8 +195,21 @@ def main(argv=None):
         if payload.get('tool_name') not in wanted:
             return EXIT_ALLOW
 
-    block, reason, _hits = evaluate(payload, args.fail_on)
-    if not block:
+    block, reason, _hits, skipped = evaluate(payload, args.fail_on)
+
+    if not block and skipped:
+        note = ('Der Aufruf von %s konnte nicht vollstaendig geprueft werden: %s.'
+                % (payload.get('tool_name') or 'unbekannt', '; '.join(skipped)))
+        if args.on_limit == 'warn':
+            sys.stderr.write('pis-hook-pretooluse: %s Durchgelassen wegen '
+                             '--on-limit warn.\n' % note)
+            return EXIT_ALLOW
+        reason = note + (' Ein Aufruf, dessen Nutzfeld hinter einer Grenze liegt, '
+                         'ist von einem sauberen nicht zu unterscheiden; deshalb '
+                         'blockiert der Hook hier. Mit --on-limit warn laeuft er '
+                         'stattdessen mit einem Hinweis durch.')
+        block = True
+    elif not block:
         return EXIT_ALLOW
 
     decision = {

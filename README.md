@@ -125,6 +125,8 @@ echo '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command"
 
 Fertiger Eintrag für `.claude/settings.json` in [`examples/claude-code-settings.json`](examples/claude-code-settings.json).
 
+Der Hook liest höchstens 200 Zeichenketten, 8 Verschachtelungsebenen und 200000 Zeichen je Feld. Wer diese Zahlen kennt, kann sein Nutzfeld dahinter legen, deshalb endet ein Aufruf, bei dem eine dieser Grenzen etwas aus der Prüfung genommen hat, nicht mit `0`: er wird blockiert und die Begründung nennt die Stelle. `--on-limit warn` gibt die Entscheidung zurück an den Aufrufer, dann steht der Hinweis nur auf stderr.
+
 Der Hook reicht die Exit-Codes von `pis-scan` bewusst nicht durch. Claude Code liest `0` als durchlassen, `2` als blockieren und alles andere als kaputten Hook, dessen Aufruf trotzdem läuft. Ein CRITICAL wäre bei `pis-scan` die `4`, also genau der Fall, der durchginge. Der Hook ruft die Bibliothek deshalb direkt auf und übersetzt selbst.
 
 ### Als GitHub Action

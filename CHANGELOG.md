@@ -39,7 +39,7 @@ nicht dazu, installiert wird aus dem Repo oder aus dem entpackten Release-Archiv
   `security-events: write` eine Berechtigung ist, die eine fremde Action nicht stillschweigend
   voraussetzen sollte. Regeln tragen `properties.security-severity`, sonst stuft GitHub jeden Fund
   gleich ein.
-- **`scripts/test_cli_hook.py`**, 23 Fälle für Exit-Codes, Hook-Entscheidungen, SARIF-Aufbau und den
+- **`scripts/test_cli_hook.py`**, 30 Fälle für Exit-Codes, Hook-Entscheidungen, SARIF-Aufbau und den
   Lauf des Action-Skripts.
 
 ### Behoben
@@ -70,6 +70,13 @@ nicht dazu, installiert wird aus dem Repo oder aus dem entpackten Release-Archiv
   Kontext-Bewertung nicht mehr an der Formulierung hing. Das Muster verlangt jetzt eine echte
   Ersetzung (`syst3m`, `pr0mpt`); die Aufforderung mit Anrede ("share your system prompt") deckt ein
   neues Kat.-12-Muster ab.
+- **Die drei Grenzen des Hooks fielen still offen.** 201 Zeichenketten vor dem Nutzfeld, neun
+  Verschachtelungsebenen oder 200001 Zeichen in einem Feld genügten, damit der Angriff nicht mehr
+  gescannt wurde; der Hook endete mit Exit `0` und ohne Ausgabe. Wer das Format des `tool_input`
+  kennt, kam damit ohne Erkennungsversuch vorbei. Ein Aufruf, bei dem eine Grenze etwas aus der
+  Prüfung genommen hat, wird jetzt blockiert, und die Begründung nennt die Stelle. Neu dafür
+  `--on-limit {block,warn}`, Vorgabe `block`. Gezählt wird, was wegfällt: genau 200 Zeichenketten,
+  acht Ebenen und 200000 Zeichen bleiben still.
 - **Die Detection-Schwelle stand in der Auswertungsschleife.** Ab wann ein Fund als Erkennung zählt,
   war eine Zeile in `run()` von `scripts/evaluate.py`. Jeder weitere Aufrufer hätte sich eine eigene
   gebaut. Sie steht als `MIN_REPORTABLE_SEVERITY` in der Engine, dazu `meaningful_findings()`,

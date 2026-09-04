@@ -178,9 +178,19 @@ Offen, Stand heute. Kein Fix zugesagt, kein Datum.
    existiert in der Engine kein Check, weder ein Muster in `PATTERNS` noch eine eigene Funktion.
 
 4. **Die Erkennung ist unbegrenzt in dem, was sie liest.** Die CLI begrenzt eine Eingabedatei auf
-   5 MB, die Action auf 2 MB je Datei, der Hook auf 200 Zeichenketten mit je 200000 Zeichen. Die
+   5 MB, die Action auf 2 MB je Datei, der Hook auf `_MAX_STRINGS` = 200 Zeichenketten mit je
+   `_MAX_CHARS` = 200000 Zeichen und `_MAX_DEPTH` = 8 Verschachtelungsebenen im `tool_input`. Die
    Bibliothek selbst begrenzt nichts: `scan_text()` nimmt jeden String an. Wer sie direkt in einen
    Dienst einbaut, muss die Grenze selbst ziehen.
+
+   Diese drei Hook-Grenzen sind ansteuerbar, wenn man das Format des `tool_input` kennt: 201
+   Zeichenketten vor dem Nutzfeld, neun Ebenen oder 200001 Zeichen genügen, damit der Angriff nicht
+   mehr gescannt wird. Bis kurz vor `v0.2.0` endete der Hook dann mit `0` und ohne Ausgabe, ein
+   durchgelassener Aufruf war von einem sauberen nicht zu unterscheiden. Jetzt blockiert er
+   stattdessen mit `2` und nennt in der Begründung, welche Stelle nicht geprüft werden konnte.
+   `--on-limit warn` gibt die Entscheidung an den Aufrufer zurück; dann steht der Hinweis nur auf
+   stderr und der Aufruf läuft. Genau an der Grenze bleibt es still: 200 Zeichenketten, acht Ebenen
+   und 200000 Zeichen sind vollständig geprüft.
 
 5. **`check_base64` prüft nur auf englische Stichwörter.** Der dekodierte String wird gegen sechs
    Begriffe geprüft: `ignore`, `instructions`, `system prompt`, `override`, `say `, `output `. Der
@@ -203,3 +213,8 @@ Offen, Stand heute. Kein Fix zugesagt, kein Datum.
    `matcher` in der `settings.json` erfasst, und ein Fehler im Hook selbst (Exit-Code 1) lässt den
    Aufruf bewusst laufen, damit ein defekter Hook keine Sitzung lahmlegt. Wer Fail-Closed braucht,
    muss das oberhalb lösen.
+
+   Diese Fail-Open-Regel gilt für den Hook als Programm: kaputte Eingabe, fehlendes Feld,
+   Ausnahme. Sie gilt **nicht** für einen Aufruf, der wegen einer der Grenzen aus Lücke 4 nur
+   teilweise geprüft wurde; der wird blockiert. Der Unterschied ist beabsichtigt: einen defekten
+   Hook kann der Angreifer nicht ansteuern, eine bekannte Grenze schon.
