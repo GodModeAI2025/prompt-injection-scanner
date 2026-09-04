@@ -334,7 +334,7 @@ python3 scripts/evaluate.py --test-suite scripts/extended-tests.json
 
 Exit-Codes von `evaluate.py`: `0` alle Fälle wie erwartet, `1` mindestens ein Fehlurteil, `2` falscher Aufruf (unbekanntes Argument, fehlende Suite-Datei). Damit lässt sich der Lauf in CI verwenden, ohne dass ein Tippfehler im Aufruf als Erfolg durchgeht. `pis-scan` benutzt eine andere Codetabelle, siehe [Quickstart](#als-paket-mit-cli).
 
-`evaluate.py` misst dieselbe Engine, die CLI, Hook und Action benutzen. Die Schwelle, ab der ein Fund als Erkennung zählt, steht als `MIN_REPORTABLE_SEVERITY` in `prompt_injection_scanner/engine.py` und nicht mehr in der Auswertungsschleife. Ein Aufrufer, der ein anderes Urteil bekäme als die Messung, wäre damit ein Fehler und keine Auslegungssache.
+`evaluate.py` misst dieselbe Engine, die CLI, Hook und Action benutzen. Die Schwelle, ab der ein Fund als Erkennung zählt, steht als `MIN_REPORTABLE_SEVERITY` in `prompt_injection_scanner/engine.py` und nicht mehr in der Auswertungsschleife. Ein Aufrufer, der ein anderes Urteil bekäme als die Messung, wäre damit ein Fehler und keine Auslegungssache. Die Action trug bis kurz vor `v0.2.0` trotzdem einen eigenen Vorgabewert; `action.yml` hat jetzt keinen mehr.
 
 ## Roadmap
 

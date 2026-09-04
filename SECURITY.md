@@ -112,7 +112,13 @@ nachstellt.
 Der Punkt bleibt für jeden neuen Aufrufer gültig, und es sind seit `v0.2.0` drei mehr: CLI, Hook,
 Action. Deshalb steht die Schwelle, ab der ein Fund als Erkennung zählt, als
 `MIN_REPORTABLE_SEVERITY` in der Engine und nicht mehr in der Auswertungsschleife. Alle vier lesen
-dieselbe. Zu den Exit-Codes:
+sie von dort.
+
+Das galt bis kurz vor `v0.2.0` nur für drei. `action/run_action.py` und `action/action.yml` trugen
+`'MEDIUM'` als eigenen Literalwert; mit der Engine auf `HIGH` meldeten CLI und Hook sauber und die
+Action denselben Text als Befund. Der Wert steht jetzt nur noch an einer Stelle, und
+`scripts/test_cli_hook.py` prüft, dass ein leer gelassenes `fail-on` bei der Engine landet. Zu den
+Exit-Codes:
 
 * `pis-scan` bildet die höchste Severity ab: 0 sauber, 1 LOW, 2 MEDIUM, 3 HIGH, 4 CRITICAL, 64
   falscher Aufruf, 65 Eingabe nicht lesbar. Ein `--fail-on`-Wert, der zu hoch steht, macht die
