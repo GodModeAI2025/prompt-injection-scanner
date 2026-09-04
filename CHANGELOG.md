@@ -108,8 +108,9 @@ nicht dazu, installiert wird aus dem Repo oder aus dem entpackten Release-Archiv
   ohne stderr und ohne Grenz-Hinweis, obwohl der Docstring von `collect_strings` sagte, jedes
   String-Feld werde gescannt. Der Schlüssel eines Objekts ist Text aus derselben unsicheren Quelle
   wie sein Wert und wird jetzt mitgelesen. Weil damit Schlüssel und Werte zählen, liegt
-  `_MAX_STRINGS` bei 400 statt 200; ein Objekt mit 200 Feldern liegt also weiter genau auf der
-  Grenze.
+  `_MAX_STRINGS` bei 400 statt 200; ein flaches Objekt mit 200 Feldern liegt also weiter genau auf
+  der Grenze. Bei tief verschachtelten Eingaben zählt jeder Schlüssel auf jeder Ebene mit, dort ist
+  die Grenze also früher erreicht als vorher; die Werkzeugaufrufe von Claude Code sind flach.
 - **Die Action zählte weiter ab MEDIUM.** `run_action.py` und `action/action.yml` trugen `'MEDIUM'`
   als eigenen Literalwert. Mit `MIN_REPORTABLE_SEVERITY` auf `HIGH` folgten CLI und Hook (gemessen:
   `pis-scan` sauber, Exit 0, Hook Exit 0), die Action meldete denselben MEDIUM-Fund weiter und machte
