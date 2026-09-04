@@ -11,7 +11,7 @@ Fixes from v3:
 - FN#50: Sandwich attacks (benign-malicious-benign pattern)
 """
 
-import argparse, base64, json, os, re, sys
+import argparse, base64, bisect, json, os, re, sys
 from dataclasses import dataclass, field, asdict
 from typing import List, Optional
 
@@ -128,21 +128,41 @@ _OPERATIVE_ADDRESS = re.compile(
 
 
 def citation_spans(text):
-    """Bereiche, in denen Text zitiert statt ausgefuehrt wird."""
-    spans = []
+    """Bereiche, in denen Text zitiert statt ausgefuehrt wird.
+
+    Rueckgabe: nach Startposition sortierte, ueberschneidungsfreie Bereiche.
+    Die Sortierung erlaubt is_cited() eine Binaersuche statt eines Scans.
+    """
+    raw = []
     for rx in _CITATION_RE:
-        spans.extend((m.start(), m.end()) for m in rx.finditer(text))
-    return spans
+        raw.extend((m.start(), m.end()) for m in rx.finditer(text))
+    raw.sort()
+    merged = []
+    for start, end in raw:
+        if merged and start <= merged[-1][1]:
+            if end > merged[-1][1]:
+                merged[-1] = (merged[-1][0], end)
+        else:
+            merged.append((start, end))
+    return merged
 
 
 def is_cited(span, citations):
-    return any(start <= span[0] and span[1] <= end for start, end in citations)
+    idx = bisect.bisect_right(citations, (span[0], float('inf'))) - 1
+    return idx >= 0 and span[1] <= citations[idx][1]
+
+
+# Fenster um einen Treffer, in dem nach Satzgrenzen gesucht wird. Ohne diese
+# Grenze wird die Suche auf grossen Dokumenten quadratisch.
+_SENTENCE_WINDOW = 300
 
 
 def _sentence_around(text, span):
-    start = max(text.rfind(c, 0, span[0]) for c in '.!?\n') + 1
-    ends = [p for p in (text.find(c, span[1]) for c in '.!?\n') if p != -1]
-    end = min(ends) + 1 if ends else len(text)
+    left = text[max(0, span[0] - _SENTENCE_WINDOW):span[0]]
+    right = text[span[1]:span[1] + _SENTENCE_WINDOW]
+    start = span[0] - len(left) + max(left.rfind(c) for c in '.!?\n') + 1
+    ends = [p for p in (right.find(c) for c in '.!?\n') if p != -1]
+    end = span[1] + (min(ends) + 1 if ends else len(right))
     return text[start:end]
 
 
