@@ -8,8 +8,15 @@ Laeuft lokal, ohne Netz und ohne GitHub:
 
 Erzeugt zwei Archive:
 
-    prompt-injection-scanner.zip   Scanner-Skill: SKILL.md, references/, scripts/
+    prompt-injection-scanner.zip   Scanner-Skill: SKILL.md, references/, scripts/,
+                                   dazu das Paket prompt_injection_scanner/ und
+                                   pyproject.toml
     red-team-generator.zip         Generator-Skill: SKILL.md, scripts/
+
+Der Scanner-Ordner ist damit zugleich Skill und Paketquelle: entpacken und in
+einem Skills-Verzeichnis liegen lassen, oder darin "pip install ." aufrufen und
+"pis-scan" bekommen. Beides benutzt dieselbe Engine, es gibt keine zweite Kopie
+der Muster.
 
 Beide entpacken in ein eigenes Verzeichnis, das direkt in einen Skills-Ordner passt.
 Die Dateinamen sind bewusst ohne Versionsnummer, damit
@@ -53,16 +60,30 @@ ARTIFACTS = (
     {
         'archive': 'prompt-injection-scanner.zip',
         'top': 'prompt-injection-scanner',
-        'files': (('SKILL.md', 'SKILL.md'), ('LICENSE', 'LICENSE')),
-        'trees': (('references', 'references'), ('scripts', 'scripts')),
+        'files': (('SKILL.md', 'SKILL.md'), ('LICENSE', 'LICENSE'),
+                  ('pyproject.toml', 'pyproject.toml')),
+        # prompt_injection_scanner/ traegt die Engine. Sie liegt neben scripts/,
+        # damit scripts/evaluate.py sie im entpackten Skill-Ordner ohne
+        # pip-Installation findet, und damit "pip install ." aus dem entpackten
+        # Ordner heraus funktioniert.
+        'trees': (('references', 'references'), ('scripts', 'scripts'),
+                  ('prompt_injection_scanner', 'prompt_injection_scanner')),
         'expected': (
             'LICENSE',
             'SKILL.md',
             'VERSION',
+            'pyproject.toml',
+            'prompt_injection_scanner/__init__.py',
+            'prompt_injection_scanner/cli.py',
+            'prompt_injection_scanner/engine.py',
+            'prompt_injection_scanner/sarif.py',
+            'prompt_injection_scanner/hooks/__init__.py',
+            'prompt_injection_scanner/hooks/pretooluse.py',
             'references/detection-patterns.md',
             'references/hardening-templates.md',
             'scripts/evaluate.py',
             'scripts/test-suite.json',
+            'scripts/test_cli_hook.py',
             'scripts/test_context_regression.py',
         ),
     },

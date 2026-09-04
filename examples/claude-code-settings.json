@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "WebFetch|Task|Bash|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pis-hook-pretooluse",
+            "timeout": 30,
+            "statusMessage": "Pruefe den Werkzeugaufruf auf Prompt Injection"
+          }
+        ]
+      }
+    ]
+  }
+}

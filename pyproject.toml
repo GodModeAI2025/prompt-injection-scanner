@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prompt-injection-scanner"
+dynamic = ["version"]
+description = "Regelbasierter Scanner fuer Prompt Injection, als Bibliothek, CLI und PreToolUse-Hook"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+authors = [{ name = "Mark Zimmermann" }]
+keywords = ["prompt-injection", "llm-security", "sarif", "claude-code", "hooks"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Security",
+]
+# Nur Standardbibliothek. Ein Sicherheitswerkzeug, das man in eine fremde
+# Pipeline haengt, soll dort keine Abhaengigkeiten nachziehen.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/GodModeAI2025/prompt-injection-scanner"
+Changelog = "https://github.com/GodModeAI2025/prompt-injection-scanner/blob/main/CHANGELOG.md"
+Security = "https://github.com/GodModeAI2025/prompt-injection-scanner/blob/main/SECURITY.md"
+
+[project.scripts]
+pis-scan = "prompt_injection_scanner.cli:main"
+pis-hook-pretooluse = "prompt_injection_scanner.hooks.pretooluse:main"
+
+# Die Versionsnummer steht genau an einer Stelle: in VERSION im
+# Wurzelverzeichnis. scripts/package.py und der Release-Workflow lesen dieselbe
+# Datei, CHANGELOG.md wird dagegen geprueft.
+[tool.setuptools.dynamic]
+version = { file = "VERSION" }
+
+# Keine automatische Paketsuche. Das Repo enthaelt neben dem Paket noch
+# scripts/, references/, red-team-generator/ und action/; die gehoeren nicht
+# in ein Wheel.
+[tool.setuptools]
+packages = ["prompt_injection_scanner", "prompt_injection_scanner.hooks"]
