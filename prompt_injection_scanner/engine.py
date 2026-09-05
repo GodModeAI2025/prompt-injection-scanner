@@ -117,6 +117,89 @@ _INVIS_FMT = set('\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180E\u3164')
 # Unicode Tags range
 _TAG_BASE = 0xE0000
 
+# Variation Selectors, beide Bloecke.
+_VS_BEREICHE = ((0xFE00, 0xFE0F), (0xE0100, 0xE01EF))
+
+
+# ============================================================
+# Abgeleitete Textsichten: was der Renderer nicht zeigt
+# ============================================================
+#
+# `check_unicode_injection()` zaehlt unsichtbare Zeichen und nennt den daraus
+# gewonnenen Klartext in der Beschreibung. Bis Welle 6 endete es damit: der
+# Klartext lief nie durch `PATTERNS`. Ein Angriff in Unicode-Tags galt als
+# Verstecken (Kat. 24), sein Inhalt wurde nicht bewertet, und die Kategorie des
+# Angriffs stand in keinem Bericht.
+#
+# Schlimmer war der Fall darunter. Zwei Zero-Width-Zeichen mitten im Wort
+# ("I<ZWSP>gnore all previous instru<ZWSP>ctions.") zerschneiden jedes Muster und
+# bleiben zugleich unter der Zaehlschwelle von drei Zeichen aus 24a. Gemessen
+# auf `main`: kein Fund, Severity NONE, Score 100. Dasselbe mit einem einzelnen
+# Variation Selector im Wort und mit zwei weichen Trennstrichen.
+#
+# Deshalb baut `abgeleitete_texte()` zwei zusaetzliche Sichten auf denselben
+# Eingabetext, die anschliessend durch dieselbe Musterschleife laufen:
+#
+#   `unicode-tags`   der aus dem Tag-Block gewonnene versteckte Klartext.
+#                    Er steht nicht im sichtbaren Strom, ist also eine eigene
+#                    Sicht und nie ein Zitat.
+#   `normalisiert`   der sichtbare Text ohne unsichtbare Zeichen und mit
+#                    kyrillischen Homoglyphen auf Latein zurueckgefaltet.
+#                    Diese Sicht deckt auch den Zero-Width-Fall ab: der dort
+#                    "versteckte" Text steht in Wahrheit im sichtbaren Strom
+#                    und wird nur von Trennzeichen zerschnitten.
+#
+# Was die Sichten nicht koennen, steht in SECURITY.md unter den bekannten
+# Luecken: mathematische Unicode-Varianten (24e) haben keine Rueckfaltung,
+# Base64 innerhalb eines Tag-Payloads wird nicht dekodiert, und Funde aus einer
+# abgeleiteten Sicht tragen keine Zeichenposition im Originaltext.
+
+QUELLE_TAGS = 'unicode-tags'
+QUELLE_NORMALISIERT = 'normalisiert'
+
+
+def _normalisierungstabelle():
+    tabelle = {}
+    for ch in _ZW_CHARS | _BIDI_CHARS | _INVIS_FMT:
+        tabelle[ord(ch)] = None
+    for anfang, ende in _VS_BEREICHE:
+        for cp in range(anfang, ende + 1):
+            tabelle[cp] = None
+    for cp in range(0xE0001, 0xE0080):
+        tabelle[cp] = None
+    for ch, ersatz in _CYRILLIC_HOMO.items():
+        tabelle[ord(ch)] = ersatz
+    return tabelle
+
+
+_NORMALISIERUNG = _normalisierungstabelle()
+
+# Vorpruefung, damit reiner ASCII-Text nicht durch `str.translate` laeuft. Die
+# Zeichenklasse wird aus derselben Tabelle gebaut, aus der auch normalisiert
+# wird. Ausgeschrieben stuenden hier unsichtbare Zeichen im Quelltext, und die
+# beiden Listen liefen frueher oder spaeter auseinander.
+_AUFFAELLIG_RE = re.compile(
+    '[' + ''.join('\\u%04x' % cp if cp <= 0xFFFF else '\\U%08x' % cp
+                  for cp in sorted(_NORMALISIERUNG)) + ']')
+
+
+def abgeleitete_texte(text):
+    """Zusaetzliche Sichten auf denselben Eingabetext.
+
+    Rueckgabe: Liste von (Herkunft, Text). Leer, wenn der Text nichts
+    Unsichtbares und keine Homoglyphen enthaelt; dann faellt auch keine zweite
+    Musterschleife an.
+    """
+    sichten = []
+    tag_text = _extract_tags_payload(text)
+    if tag_text and len(tag_text) > 3:
+        sichten.append((QUELLE_TAGS, tag_text))
+    if _AUFFAELLIG_RE.search(text):
+        normalisiert = text.translate(_NORMALISIERUNG)
+        if normalisiert != text:
+            sichten.append((QUELLE_NORMALISIERT, normalisiert))
+    return sichten
+
 
 # ============================================================
 # IMPROVED Context Classifiers
@@ -753,20 +836,39 @@ def check_unicode_injection(text):
     return findings
 
 
-def scan_text(text):
-    findings = []
-    seen = set()
-    context = context_signals(text)
-    citations = citation_spans(text) if context else []
+def muster_scan(text, gesehen, context, citations, herkunft=None):
+    """Die Musterschleife, einmal ueber einen Text.
 
+    `gesehen` bildet Musterschluessel auf den bereits gemeldeten Fund ab und
+    wird ueber alle Sichten desselben Eingabetextes geteilt. Ein Muster, das
+    schon getroffen hat, wird in einer abgeleiteten Sicht nicht ein zweites Mal
+    gemeldet; gemeldet wird nur, was die Sichten davor nicht gesehen haben.
+
+    Eine Ausnahme, und sie schliesst ein Loch, das die Buchfuehrung selbst
+    aufgerissen hat: steht der bereits gemeldete Fund auf Confidence LOW, war
+    jeder seiner Treffer zitiert. Ein Treffer desselben Musters in einer
+    abgeleiteten Sicht ist damit nicht dasselbe Vorkommen, sondern ein zweites,
+    unzitiertes. Ohne die Ausnahme genuegte ein Bildungsrahmen mit demselben
+    Satz in Anfuehrungszeichen, um die versteckte Fassung mitzuverdecken:
+    gemessen fiel ein Dokument mit "Ignore previous instructions." als Zitat und
+    "Ign<ZWSP>ore previous instru<ZWSP>ctions." als Befehl auf INFO, Score 99,
+    nicht erkannt.
+
+    `herkunft` ist None fuer den Originaltext. Fuer eine abgeleitete Sicht steht
+    dort ihr Name; der Fund traegt ihn in der Beschreibung und bekommt keine
+    Zeichenposition, weil die Position in einem Text laege, den es im Original
+    nicht gibt.
+    """
+    gefunden = []
     for group, patterns in PATTERNS.items():
         for pattern, cat, sev, is_direct in patterns:
             spans = [(m.start(), m.end(), m.group(0))
                      for m in re.finditer(pattern, text, re.DOTALL)]
             if not spans: continue
             key = f"{cat}:{pattern[:40]}"
-            if key in seen: continue
-            seen.add(key)
+            vorher = gesehen.get(key)
+            if vorher is not None and not (herkunft and vorher.confidence == 'LOW'):
+                continue
 
             conf = 'HIGH' if is_direct else 'MEDIUM'
             hit = spans[0]
@@ -787,8 +889,24 @@ def scan_text(text):
                     conf = 'LOW'
 
             mt = hit[2]
-            findings.append(Finding(cat, sev, conf, mt[:60], f'{group}: {mt[:40]}', is_direct,
-                                    start=hit[0], end=hit[1]))
+            if herkunft:
+                fund = Finding(cat, sev, conf, mt[:60],
+                               f'{herkunft} \u2192 {group}: {mt[:40]}', is_direct)
+            else:
+                fund = Finding(cat, sev, conf, mt[:60], f'{group}: {mt[:40]}',
+                               is_direct, start=hit[0], end=hit[1])
+            gesehen[key] = fund
+            gefunden.append(fund)
+    return gefunden
+
+
+def scan_text(text):
+    findings = []
+    gesehen = {}
+    context = context_signals(text)
+    citations = citation_spans(text) if context else []
+
+    findings.extend(muster_scan(text, gesehen, context, citations))
 
     b64 = check_base64(text)
     if b64:
@@ -808,6 +926,19 @@ def scan_text(text):
         for f in unicode_findings:
             f.confidence = damp(f.confidence)
     findings.extend(unicode_findings)
+
+    # Der versteckte und der entschleierte Text noch einmal durch dieselben
+    # Muster. Ohne diesen Schritt meldet der Scanner das Verstecken und nicht
+    # den Angriff: der Bericht nennt Kat. 24, die Kategorie und die Severity des
+    # Musters bleiben aus. Siehe `abgeleitete_texte()`.
+    for herkunft, abgeleitet in abgeleitete_texte(text):
+        # Zitatpruefung nur fuer die normalisierte Sicht, und dort auf ihren
+        # eigenen Positionen: die Zeichenversaetze des Originals passen nach dem
+        # Entfernen der unsichtbaren Zeichen nicht mehr. Ein Tag-Payload steht
+        # ueberhaupt nicht im sichtbaren Strom und ist damit nie ein Zitat.
+        zitate = (citation_spans(abgeleitet)
+                  if context and herkunft == QUELLE_NORMALISIERT else [])
+        findings.extend(muster_scan(abgeleitet, gesehen, context, zitate, herkunft))
 
     pcats = set(f.category for f in findings
                 if f.is_primary and is_actionable(f) and SEVERITY_ORDER.get(f.severity, 0) >= 2)
