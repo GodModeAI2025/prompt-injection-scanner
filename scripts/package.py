@@ -85,6 +85,7 @@ ARTIFACTS = (
             'scripts/test-suite.json',
             'scripts/test_cli_hook.py',
             'scripts/test_context_regression.py',
+            'scripts/test_erkennungsluecken.py',
         ),
     },
     {

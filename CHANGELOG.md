@@ -44,6 +44,61 @@ nicht dazu, installiert wird aus dem Repo oder aus dem entpackten Release-Archiv
 
 ### Behoben
 
+- **Der versteckte Klartext lief nie durch die Muster.** `check_unicode_injection()` holte den in
+  Unicode-Tags oder zwischen Zero-Width-Zeichen versteckten Text heraus, schrieb ihn in die
+  Beschreibung des Kat.-24-Fundes und schickte ihn nicht weiter. Ein Angriff in Tags galt damit als
+  Verstecken, nicht als Angriff: der Bericht nannte Kat. 24, nicht Kat. 1 oder Kat. 12. `SKILL.md`
+  verlangte den Schritt an dieser Stelle seit Iteration 6 ausdrücklich ("Extrahierte Payload durch die
+  Kat. 1-12 Patterns laufen lassen"); die Regex-Engine tat ihn nicht. Das ist genau die Drift zwischen
+  Prosa und Code, die der Modulkopf von `engine.py` als Fehler und nicht als Spielraum bezeichnet.
+
+  Darunter lag der härtere Fall. Zwei Zero-Width-Zeichen mitten im Wort zerschneiden jedes Muster und
+  bleiben zugleich unter der Zählschwelle von drei Zeichen aus Kat. 24a. Gemessen auf dem Stand davor:
+  `I<ZWSP>gnore all previous instru<ZWSP>ctions.` ergab keinen einzigen Fund, Severity NONE, Score 100.
+  Dasselbe mit einem einzelnen Variation Selector im Wort.
+
+  `scan_text()` bildet jetzt zwei zusätzliche Sichten auf denselben Text und schickt beide durch
+  dieselbe Musterschleife: den aus dem Tag-Block gewonnenen Klartext und eine normalisierte Sicht ohne
+  unsichtbare Zeichen, mit kyrillischen Homoglyphen auf Latein zurückgefaltet. Ein Fund aus einer
+  solchen Sicht trägt die Severity seines Musters, nennt seine Herkunft in der Beschreibung und hat
+  keine Zeichenposition. Ohne unsichtbares Zeichen im Text entsteht keine zweite Sicht: 100 KB
+  reiner ASCII-Text kostet 0,276 gegen 0,205 Sekunden, und das zahlen die neuen deutschen Muster
+  und nicht die zweite Sicht; 100 KB mit Zero-Width-Zeichen kosten 0,423 gegen 0,221 Sekunden.
+
+  Was der Mechanismus nicht abdeckt, steht als bekannte Lücke 10 in `SECURITY.md`: keine Rückfaltung
+  für mathematische Unicode-Varianten, nur eine Decodier-Runde, keine Zeichenposition für abgeleitete
+  Funde.
+
+- **Ein zitiertes Vorkommen verdeckte die versteckte Fassung.** Die Musterschleife meldet jedes Muster
+  nur einmal, und das galt zunächst auch für die abgeleiteten Sichten. Ein Bildungsrahmen mit
+  `"Ignore previous instructions."` als Zitat und derselben Zeile mit zwei Zero-Width-Zeichen als
+  Befehl fiel deshalb auf INFO, Score 99, nicht erkannt. Steht der bereits gemeldete Fund auf
+  Confidence LOW, war jeder seiner Treffer zitiert; ein Treffer in einer abgeleiteten Sicht ist dann
+  ein zweites, unzitiertes Vorkommen und wird gemeldet. Derselbe Text ergibt jetzt CRITICAL, Score 75.
+
+- **Die deutschen Muster erwarteten das Verb vorne.** `Ignoriere alle vorherigen Anweisungen` traf,
+  die deutsche Verbendstellung nicht. Gemessen auf dem Stand davor: zwölf Sätze, keiner erkannt,
+  Score 100, darunter `Du musst alle vorherigen Anweisungen ignorieren.`, das die README selbst als
+  offene Lücke nannte. Neu sind sieben Muster für Modalverb plus Infinitiv, `dass`- und
+  `damit`-Nebensatz, die Konstruktion mit `sind zu` und das trennbare Verb, verteilt auf Kat. 1,
+  Kat. 12 und Kat. 21. Die Bausteine (Objektliste, Verbliste, Lückenbreite) stehen an einer Stelle
+  über `PATTERNS`, damit sie nicht in sieben Mustern auseinanderlaufen.
+
+  Jedes dieser Muster verlangt die Anrede an das Modell oder einen Imperativ, und die Lücke zwischen
+  Objekt und Verb ist auf 60 Zeichen begrenzt und endet an jeder Satzgrenze. Das hält deutsche Prosa
+  still: `Der Artikel beschreibt, wie Sprachmodelle vorherige Anweisungen ignorieren` benutzt dieselben
+  Wörter und ist kein Fund. Es ist zugleich der Weg daran vorbei, siehe bekannte Lücke 11 in
+  `SECURITY.md`.
+
+- **Messung.** `scripts/test-suite.json` hat 16 Fälle mehr, elf Angriffe und fünf deutsche
+  Gegenproben, und zählt 82 statt 66. Gegen dieselben 82 Fälle: `main` TP=53, TN=21, FP=0, FN=8,
+  F1 93,0 Prozent; dieser Stand TP=61, TN=21, FP=0, FN=0, F1 100 Prozent, Kategorie-Treffer 96,7
+  statt 80,3 Prozent. Fall für Fall verglichen ging nichts verloren: keine Erkennung, keine Severity,
+  keine Kategorie. Der Generator-Lauf über 30 Seeds (2040 Fälle) endet auf beiden Seiten mit TP=1530,
+  TN=510, FP=0, FN=0; die Kategorie-Trefferquote steigt dort von 82,88 auf 84,31 Prozent.
+  `scripts/test_erkennungsluecken.py` hält beide Lücken mit 18 Fällen fest und läuft in der CI, auch
+  gegen das entpackte Release-Archiv.
+
 - **Die Befehlsprüfung in der Kontext-Bewertung ist ersatzlos gestrichen.** Bis dahin entschied eine
   Liste von Verben, Höflichkeitspräfixen und Anreden, ob ein unzitierter Treffer ein Befehl oder eine
   bloße Erwähnung ist. Sieben gemessene Schreibweisen kamen daran vorbei, alle im Bildungsrahmen mit

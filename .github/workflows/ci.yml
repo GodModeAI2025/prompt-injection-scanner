@@ -36,7 +36,15 @@ jobs:
       - name: CLI, Hook und SARIF-Ausgabe
         run: python3 scripts/test_cli_hook.py
 
-      # 66 Faelle aus scripts/test-suite.json. Rot bei jedem False Positive und
+      # Haelt fest, dass versteckter und verschleierter Text noch einmal durch
+      # die Muster laeuft und dass die deutschen Muster mit Verb am Satzende
+      # greifen. Rot, sobald ein Angriff in Unicode-Tags wieder nur als
+      # Verstecken gemeldet wird oder ein deutscher Nebensatz durchfaellt.
+      # Massstab fuer die versteckte Fassung ist derselbe Angriff im Klartext.
+      - name: Regressionstest der Erkennungsluecken aus Welle 7
+        run: python3 scripts/test_erkennungsluecken.py
+
+      # 82 Faelle aus scripts/test-suite.json. Rot bei jedem False Positive und
       # jedem False Negative, also bei jeder Pattern-Aenderung, die ein Urteil
       # kippt.
       - name: Test-Suite gegen die Pattern-Engine
@@ -97,6 +105,7 @@ jobs:
           cd "$RUNNER_TEMP/entpackt/prompt-injection-scanner"
           python3 scripts/evaluate.py --output "$RUNNER_TEMP/entpackt-eval.json"
           python3 scripts/test_context_regression.py
+          python3 scripts/test_erkennungsluecken.py
 
       # pip install . muss aus dem Repo heraus funktionieren, ein PyPI-Konto
       # gibt es nicht. Geprueft wird, dass beide Konsolenbefehle entstehen und
