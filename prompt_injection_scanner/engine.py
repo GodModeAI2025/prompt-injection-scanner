@@ -544,18 +544,29 @@ _DE_PRAEFIX = r'\b(?:aus|an|auf|preis|offen|her|vor)\b\s*(?=[.,!?;:…\n]|$)'
 _DE_NEBENSATZ = r'\b(?:dass|damit|sodass|so\s+dass)\s+du\b'
 
 
+# Englische Bestimmungswoerter vor dem Objekt eines Overrides: ein bis drei
+# aus der Liste, dazwischen optional "of the" oder "of your" wie in "all of
+# the previous instructions". Die Liste setzt jedes Muster selbst ein.
+_EN_QUALIFIER = r'(?:(?:{0})(?:\s+of\s+(?:the|your))?\s+){{1,3}}'
+
+
 # ============================================================
 # Pattern Definitions v4
 # ============================================================
 
 PATTERNS = {
     'direct_override': [
-        (r'(?i)ignore\s+(all|previous|prior|above|earlier)\s+(instructions|rules|guidelines|directives|constraints)', 'Kat. 1', 'CRITICAL', True),
-        (r'(?i)forget\s+(all|everything|previous|your|prior)\s+(instructions|rules|training|guidelines)', 'Kat. 1', 'CRITICAL', True),
-        (r'(?i)disregard\s+(all|any|previous|your)\s+(instructions|rules|safety|guidelines)', 'Kat. 1', 'CRITICAL', True),
-        (r'(?i)override\s+(your|all|previous|system)\s+(instructions|rules|settings|behavior)', 'Kat. 1', 'CRITICAL', True),
+        # v7: Bestimmungswoerter duerfen sich stapeln. Die Muster verlangten genau
+        # eins, "ignore all previous instructions" traf deshalb nur das
+        # Leet-Muster mit HIGH, "override all previous instructions" und "stop
+        # following all previous instructions" gar nichts. Ein blosses "the"
+        # zaehlt nicht mit: "ignore the instructions in section 2" ist Doku.
+        (r'(?i)ignore\s+' + _EN_QUALIFIER.format('all|any|previous|prior|above|earlier|your') + r'(instructions|rules|guidelines|directives|constraints)', 'Kat. 1', 'CRITICAL', True),
+        (r'(?i)forget\s+' + _EN_QUALIFIER.format('all|everything|previous|your|prior|above|earlier') + r'(instructions|rules|training|guidelines)', 'Kat. 1', 'CRITICAL', True),
+        (r'(?i)disregard\s+' + _EN_QUALIFIER.format('all|any|previous|your|prior|above|earlier') + r'(instructions|rules|safety|guidelines)', 'Kat. 1', 'CRITICAL', True),
+        (r'(?i)override\s+' + _EN_QUALIFIER.format('your|all|previous|prior|system') + r'(instructions|rules|settings|behavior)', 'Kat. 1', 'CRITICAL', True),
         (r'(?i)from\s+now\s+on\s+(you\s+must|you\s+will|you\s+are|always|never)', 'Kat. 1', 'HIGH', True),
-        (r'(?i)stop\s+following\s+(your|previous|all)\s+(rules|instructions)', 'Kat. 1', 'CRITICAL', True),
+        (r'(?i)stop\s+following\s+' + _EN_QUALIFIER.format('your|previous|prior|all') + r'(rules|instructions)', 'Kat. 1', 'CRITICAL', True),
         (r'(?i)your\s+(real|actual)\s+(instructions|purpose)\s+(are|is)', 'Kat. 1', 'CRITICAL', True),
         (r'(?i)ignora\s+todas\s+las\s+instrucciones', 'Kat. 1', 'CRITICAL', True),
         # v4: Sandwich / NEW INSTRUCTION
