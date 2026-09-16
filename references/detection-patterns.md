@@ -22,13 +22,14 @@ Regelbasierte Erkennung bekannter Angriffsphrasen, Encoding-Artefakte und Format
 **Was:** Explizite Anweisungen, die vorherige Instruktionen überschreiben, ignorieren oder ersetzen sollen.
 
 **Erkennungsmuster:**
-- "ignore (all|previous|prior|above|earlier) (instructions|rules|guidelines|directives|constraints)"
-- "forget (all|everything|previous|your|prior) (instructions|rules|training|guidelines)"
-- "disregard (all|any|previous|your) (instructions|rules|safety|guidelines)"
-- "override (your|all|previous|system) (instructions|rules|settings|behavior)"
+- "ignore (all|any|previous|prior|above|earlier|your) (instructions|rules|guidelines|directives|constraints)"
+- "forget (all|everything|previous|your|prior|above|earlier) (instructions|rules|training|guidelines)"
+- "disregard (all|any|previous|your|prior|above|earlier) (instructions|rules|safety|guidelines)"
+- "override (your|all|previous|prior|system) (instructions|rules|settings|behavior)"
 - "new instructions:" / "updated instructions:" / "revised rules:"
 - "from now on (you must|you will|you are|always|never)"
-- "stop following (your|previous|all) (rules|instructions|guidelines)"
+- "stop following (your|previous|prior|all) (rules|instructions|guidelines)"
+- Bestimmungswörter stapeln sich: bei ignore, forget, disregard, override und stop following stehen ein bis drei davon vor dem Objekt, auch mit "of the" dazwischen ("ignore all previous instructions", "disregard all of the prior rules"). Ein bloßes "the" zählt nicht ("ignore the instructions in section 2" ist Dokumentation). Bei override stapeln nur instructions, rules und behavior; "settings" und "system" bleiben bei der einfachen Form ("override all system settings" ist kein Fund).
 - "your real instructions are" / "your actual purpose is"
 - Deutsche Varianten: "ignoriere (alle|vorherige) (Anweisungen|Regeln)", "vergiss (alles|deine Regeln)", "ab jetzt (musst du|wirst du)", "neue Anweisungen:", "lösche alle vorherigen Regeln"
 - Deutsche Verbendstellung (Verb am Satzende, das Englische kennt sie nicht): "du (musst|sollst|wirst) ... (Anweisungen|Regeln|Richtlinien) ... (ignorieren|vergessen|missachten|umgehen)", "dass du ... (Regeln|Anweisungen) ... (ignorierst|vergisst|übergehst)", "(alle vorherigen) Anweisungen sind zu ignorieren". Die Muster verlangen die Anrede an das Modell ("du", "dein..."); ein beschreibender Satz in der dritten Person ("wie Sprachmodelle Anweisungen ignorieren") ist kein Fund.
