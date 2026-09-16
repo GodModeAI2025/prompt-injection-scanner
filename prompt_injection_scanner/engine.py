@@ -564,7 +564,10 @@ PATTERNS = {
         (r'(?i)ignore\s+' + _EN_QUALIFIER.format('all|any|previous|prior|above|earlier|your') + r'(instructions|rules|guidelines|directives|constraints)', 'Kat. 1', 'CRITICAL', True),
         (r'(?i)forget\s+' + _EN_QUALIFIER.format('all|everything|previous|your|prior|above|earlier') + r'(instructions|rules|training|guidelines)', 'Kat. 1', 'CRITICAL', True),
         (r'(?i)disregard\s+' + _EN_QUALIFIER.format('all|any|previous|your|prior|above|earlier') + r'(instructions|rules|safety|guidelines)', 'Kat. 1', 'CRITICAL', True),
-        (r'(?i)override\s+' + _EN_QUALIFIER.format('your|all|previous|prior|system') + r'(instructions|rules|settings|behavior)', 'Kat. 1', 'CRITICAL', True),
+        # Bei override stapeln nur Anweisungs-Objekte. "settings" und "system"
+        # bleiben bei der einfachen Form von vorher: "override all system
+        # settings" und "override your previous settings" sind Admin-Doku.
+        (r'(?i)override\s+(?:(?:your|all|previous|system)\s+(instructions|rules|settings|behavior)|' + _EN_QUALIFIER.format('your|all|previous|prior') + r'(instructions|rules|behavior))', 'Kat. 1', 'CRITICAL', True),
         (r'(?i)from\s+now\s+on\s+(you\s+must|you\s+will|you\s+are|always|never)', 'Kat. 1', 'HIGH', True),
         (r'(?i)stop\s+following\s+' + _EN_QUALIFIER.format('your|previous|prior|all') + r'(rules|instructions)', 'Kat. 1', 'CRITICAL', True),
         (r'(?i)your\s+(real|actual)\s+(instructions|purpose)\s+(are|is)', 'Kat. 1', 'CRITICAL', True),

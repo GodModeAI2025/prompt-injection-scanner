@@ -325,7 +325,6 @@ class DeutscheVerbendstellung(unittest.TestCase):
         self.assertIn('Kat. 1', kat)
 
 
-
 class GestapelteBestimmungswoerter(unittest.TestCase):
     """Luecke 3: "all previous" wiegt so schwer wie "previous"."""
 
@@ -342,6 +341,10 @@ class GestapelteBestimmungswoerter(unittest.TestCase):
         'You can ignore the instructions in section 2 if you use the CLI.',
         'Please follow all previous instructions from the onboarding guide.',
         'The changelog lists all previous releases and their rules.',
+        'Stop following the previous instructions in section 2 and use the new setup guide.',
+        'Admins can override all system settings via the console.',
+        'Use --force to override all previous settings.',
+        'This flag lets you override your previous settings.',
     ]
 
     def test_gestapelte_form_ist_critical(self):
