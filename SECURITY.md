@@ -281,7 +281,9 @@ Offen, Stand heute. Kein Fix zugesagt, kein Datum.
     ebenso ein Tag-Payload innerhalb eines Tag-Payloads. Hex und ROT13 haben keine Rückrechnung,
     obwohl Kat. 3 sie als Verschleierung führt. Die Base64-Sicht dekodiert höchstens 200 Blöcke je
     Text und sammelt höchstens 8000 Zeichen Klartext; wer mehr Attrappen davorstellt, schiebt seinen
-    Payload aus der Sicht heraus. Die abgeleiteten Sichten teilen sich die
+    Payload aus der Sicht heraus. Im Dokumentationsrahmen bleiben zitierte Blöcke ganz draußen, sonst
+    meldete jede Doku ihr eigenes Base64-Beispiel als Angriff; wer seinen Payload in einen Codeblock
+    setzt und den Rahmen mitliefert, kommt damit an der Sicht vorbei. Kat. 3 meldet ihn weiterhin. Die abgeleiteten Sichten teilen sich die
     Treffer-Buchführung mit dem Originaltext, ein Muster wird also nur einmal gemeldet. Die einzige
     Ausnahme davon ist ein Fund, den der Kontext auf Confidence LOW gedrückt hat: dann war jeder
     seiner Treffer zitiert, und ein Treffer in der versteckten Fassung ist ein zweites, unzitiertes

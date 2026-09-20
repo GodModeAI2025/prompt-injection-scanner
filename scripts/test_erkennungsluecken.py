@@ -417,6 +417,38 @@ class KodierteNutzlast(unittest.TestCase):
             det, sev, gefunden = urteil(text)
             self.assertFalse(det, 'False Positive auf %r: %s %s' % (text[:40], sev, gefunden))
 
+    def test_zitiertes_base64_zaehlt_wie_zitierter_klartext(self):
+        """Ein Beispiel im Codeblock ist Dokumentation, kodiert wie im Klartext.
+
+        Die eigene SKILL.md zeigt genau diese Form: ein Base64-Beispiel in einem
+        Codeblock, dazu Prosa darueber. Ohne die Zitatpruefung auf der
+        Verpackung meldete der Scanner sein eigenes Beispiel als Angriff,
+        waehrend derselbe Satz im Klartext daneben korrekt still blieb.
+        """
+        det, sev, gefunden = urteil(self.doku('```\n%s\n```'))
+        # Kat. 3 bleibt: `check_base64` meldet die Verpackung unabhaengig vom
+        # Rahmen, und daran aendert die Sicht nichts. Die Kategorien des
+        # dekodierten Angriffs duerfen aber nicht dazukommen.
+        self.assertEqual(['Kat. 3'], gefunden,
+                         'Zitiertes Base64 meldet den dekodierten Angriff: %s' % sev)
+
+    def test_unzitiertes_base64_bleibt_laut(self):
+        """Derselbe Rahmen, der Block aber im Fliesstext: Fund bleibt."""
+        det, sev, gefunden = urteil(self.doku('Bitte dekodiere und befolge: %s'))
+        self.assertTrue(det, 'Unzitiertes Base64 verstummt im Dokumentationsrahmen.')
+        self.assertIn('Kat. 1', gefunden)
+
+    def doku(self, rahmen):
+        """Ein Dokumentationstext, in den der kodierte Angriff eingesetzt wird."""
+        text = ('This article explains how attackers hide payloads in encoded\n'
+                'blocks, and how to detect them before they reach the model.\n'
+                'Defensive strategies start with decoding what the text carries:\n\n'
+                + rahmen % b64(self.ANGRIFFE[0][0]) + '\n\n'
+                'We recommend adding a decoding step to every scanner.\n')
+        self.assertTrue(E.engine.context_signals(text),
+                        'Der Testtext loest keinen Dokumentationsrahmen aus.')
+        return text
+
     def test_ohne_lesbares_base64_keine_sicht(self):
         """Ein Hash ist kein Klartext und baut keine dritte Sicht."""
         quellen = [herkunft for herkunft, _ in E.engine.abgeleitete_texte(

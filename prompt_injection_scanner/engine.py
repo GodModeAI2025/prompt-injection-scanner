@@ -154,6 +154,8 @@ _VS_BEREICHE = ((0xFE00, 0xFE0F), (0xE0100, 0xE01EF))
 #                    darin steht, sagte davor kein Bericht: die Pruefung
 #                    verglich den dekodierten Text nur mit sechs englischen
 #                    Stichwoertern und meldete HIGH, egal was darin stand.
+#                    Im Dokumentationsrahmen bleiben zitierte Bloecke draussen,
+#                    genau wie zitierter Klartext.
 #
 # Was die Sichten nicht koennen, steht in SECURITY.md unter den bekannten
 # Luecken: mathematische Unicode-Varianten (24e) haben keine Rueckfaltung,
@@ -225,13 +227,31 @@ def _dekodiere_base64(block):
     return klartext
 
 
-def _base64_klartext(*texte):
+def _base64_bloecke(text, zitate):
+    """Base64-Bloecke eines Textes, Zitate und Codebloecke ausgenommen.
+
+    `zitate` ist leer, solange kein Dokumentationsrahmen erkannt wurde; dann
+    zaehlt jeder Block. Steht ein Rahmen, gilt fuer die Verpackung dasselbe wie
+    fuer den Klartext: ein Block im Codeblock oder in Anfuehrungszeichen ist ein
+    Beispiel und kein Angriff. Ohne diese Ausnahme meldete die eigene `SKILL.md`
+    ihr eigenes Base64-Beispiel als CRITICAL, waehrend derselbe Angriff im
+    Klartext daneben korrekt auf LOW fiel.
+    """
+    bloecke = []
+    for treffer in _B64_RE.finditer(text):
+        if zitate and is_cited(treffer.span(), zitate):
+            continue
+        bloecke.append(treffer.group(0))
+        if len(bloecke) >= _B64_MAX_BLOECKE:
+            break
+    return bloecke
+
+
+def _base64_klartext(*bloecklisten):
     stuecke = []
     gesamt = 0
-    for text in texte:
-        if not text:
-            continue
-        for block in _B64_RE.findall(text)[:_B64_MAX_BLOECKE]:
+    for bloecke in bloecklisten:
+        for block in bloecke:
             klartext = _dekodiere_base64(block)
             if not klartext:
                 continue
@@ -242,12 +262,16 @@ def _base64_klartext(*texte):
     return '\n'.join(stuecke)
 
 
-def abgeleitete_texte(text):
+def abgeleitete_texte(text, zitate=()):
     """Zusaetzliche Sichten auf denselben Eingabetext.
 
     Rueckgabe: Liste von (Herkunft, Text). Leer, wenn der Text nichts
     Unsichtbares, keine Homoglyphen und kein lesbares Base64 enthaelt; dann
     faellt auch keine zweite Musterschleife an.
+
+    `zitate` sind die Zitatbereiche des Originaltextes, wie `scan_text()` sie
+    im Dokumentationsrahmen berechnet. Sie halten die Base64-Sicht von Bloecken
+    frei, die zitiert dastehen.
     """
     sichten = []
     tag_text = _extract_tags_payload(text)
@@ -258,8 +282,10 @@ def abgeleitete_texte(text):
         if normalisiert != text:
             sichten.append((QUELLE_NORMALISIERT, normalisiert))
     # Auch der Tag-Payload wird dekodiert: Base64 im Tag-Block war die zweite
-    # Verpackung, an der beide Pruefungen vorbeiliefen.
-    dekodiert = _base64_klartext(text, tag_text)
+    # Verpackung, an der beide Pruefungen vorbeiliefen. Er steht nicht im
+    # sichtbaren Strom und ist deshalb nie zitiert.
+    dekodiert = _base64_klartext(_base64_bloecke(text, zitate),
+                                 _base64_bloecke(tag_text, ()) if tag_text else ())
     if len(dekodiert) > 3:
         sichten.append((QUELLE_BASE64, dekodiert))
     return sichten
@@ -1138,7 +1164,7 @@ def scan_text(text):
     # Muster. Ohne diesen Schritt meldet der Scanner das Verstecken und nicht
     # den Angriff: der Bericht nennt Kat. 24, die Kategorie und die Severity des
     # Musters bleiben aus. Siehe `abgeleitete_texte()`.
-    for herkunft, abgeleitet in abgeleitete_texte(text):
+    for herkunft, abgeleitet in abgeleitete_texte(text, citations):
         # Zitatpruefung nur fuer die normalisierte Sicht, und dort auf ihren
         # eigenen Positionen: die Zeichenversaetze des Originals passen nach dem
         # Entfernen der unsichtbaren Zeichen nicht mehr. Ein Tag-Payload steht
